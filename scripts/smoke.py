@@ -3,6 +3,7 @@
 Uso: python3 scripts/smoke.py <requests.json> <base_url> <saida.json>
 Só usa a biblioteca padrão.
 """
+import http.client
 import json
 import sys
 import urllib.error
@@ -23,6 +24,8 @@ def chamar(base_url, req):
         status, texto = erro.code, erro.read().decode("utf-8", "replace")
     except urllib.error.URLError as erro:
         return {"id": req["id"], "status": None, "erro_conexao": str(erro.reason)}
+    except (TimeoutError, ConnectionError, http.client.HTTPException) as erro:
+        return {"id": req["id"], "status": None, "erro_conexao": f"{type(erro).__name__}: {erro}"}
     try:
         corpo_resp = json.loads(texto)
     except ValueError:

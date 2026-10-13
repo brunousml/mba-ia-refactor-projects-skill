@@ -33,7 +33,7 @@ Registro de rota aparece de três formas. Procure as três:
 
 1. **Decorator sobre função:** `@<objeto>.<método>("/caminho")`, `@route(...)`.
 2. **Registro explícito:** `<objeto>.<método>("/caminho", handler)` ou chamada de adição de regra de URL.
-3. **Router ou blueprint montado com prefixo:** combine o prefixo de montagem com o caminho interno. Sem combinar, o caminho fica errado.
+3. **Módulo de rotas montado com prefixo** (router, grupo de rotas): combine o prefixo de montagem com o caminho interno. Sem essa combinação, o caminho fica errado.
 
 Para cada rota, registre: método HTTP, caminho completo, `arquivo:linha` do registro e nome do handler. Inclua as rotas de administração, de exclusão e de relatório, que costumam ficar em arquivos secundários ou no próprio arquivo de entrada.
 
@@ -55,12 +55,19 @@ Se o mesmo caminho aparecer com métodos diferentes, cada combinação é uma ro
 
 Diga qual classificação se aplica e por quê, com pelo menos dois arquivos de evidência.
 
-## 6. Comando de boot e porta
+## 6. Comando de boot e porta (usados só na Fase 3)
 
-- **Comando:** `scripts.start` (Node), bloco `if __name__ == "__main__"` ou `app.run(...)` (Python), README do projeto.
-- **Porta:** procure em chamadas de `listen`, `run(port=...)`, variável `PORT` e no README.
-- **Porta ocupada:** em macOS, a 5000 costuma estar em uso por um serviço do sistema. Teste antes de subir. Se estiver ocupada, use outra porta com o mesmo comando (flag de porta do servidor de desenvolvimento) e registre a escolha.
-- **Ambiente isolado:** instale dependências num ambiente do próprio projeto (`.venv`, `node_modules`), nunca no ambiente global.
+As Fases 1 e 2 são **só leitura**. Nelas você apenas identifica o comando e a porta. Não suba a aplicação, não instale dependências, não rode seed.
+
+- **Comando:** `scripts.start` (Node), o bloco `if __name__ == "__main__"` ou a chamada `run(...)` (Python), ou o README do projeto. Se o bloco de entrada faz inicialização ou seed, o boot precisa passar por ele. Um servidor de desenvolvimento alternativo que pula esse bloco serve apenas quando a inicialização acontece em outro lugar.
+- **Porta:** procure em `listen`, `run(port=...)`, variável `PORT` e no README.
+- **Seed e estado:** banco em arquivo guarda o estado entre execuções. Localize o arquivo de banco e o seed, porque a Fase 3 precisa do mesmo estado inicial no snapshot e na validação.
+
+Na Fase 3, antes do snapshot:
+1. Instale as dependências num ambiente do próprio projeto (`.venv`, `node_modules`), nunca no global.
+2. Verifique se a porta está livre (`lsof -iTCP:<porta> -sTCP:LISTEN`). No macOS, a 5000 costuma estar ocupada por um serviço do sistema, que responde 403 a tudo.
+3. Se a porta estiver ocupada e for fixa no código, a primeira edição da Fase 3 é torná-la configurável por variável de ambiente, mantendo o mesmo default. Suba numa porta livre.
+4. Depois de subir, confirme que a resposta vem da aplicação: uma rota raiz ou de health deve devolver o corpo esperado, não um erro genérico de outro serviço.
 
 ## 7. Contagem de arquivos
 

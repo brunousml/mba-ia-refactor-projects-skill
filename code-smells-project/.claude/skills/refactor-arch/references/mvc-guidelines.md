@@ -30,7 +30,7 @@ serializers/   (opcional) o que sai na resposta; esconde campos sensíveis
 
 ## Regras de projeto
 
-1. **Config por ambiente.** Segredos e endereços saem do código. Valores obrigatórios (chave, senha de banco) falham no boot com mensagem clara se faltarem. Porta e modo de depuração têm default de desenvolvimento e podem ser sobrescritos.
+1. **Config por ambiente.** Segredos e endereços saem do código. Em desenvolvimento, um segredo ausente vira um valor aleatório com warning. Em produção, a ausência derruba o boot (T01). A porta padrão é **a mesma do projeto original**. O modo debug vem do ambiente, com default desligado. Inclua um `.env.example`.
 2. **Injeção de dependência simples.** Banco, cache e serviços são criados no entry point e passados para quem usa. Nenhum módulo cria conexão por conta própria.
 3. **Erros de domínio são classes.** O serviço lança um erro de domínio com status sugerido. O middleware de erro traduz para a resposta. Erro não tratado vira 500 com mensagem genérica e log completo no servidor.
 4. **Serialização explícita.** A resposta é montada por um serializador que lista os campos públicos. Nunca se devolve a entidade inteira.
@@ -44,7 +44,9 @@ serializers/   (opcional) o que sai na resposta; esconde campos sensíveis
 
 **Camadas parciais (já existem routes, models, services):** não reescreva o que já está correto. Procure o que falta: regra dentro de rota (mover para serviço), serialização sem filtro (criar serializador), configuração espalhada (centralizar), erro sem handler central (adicionar middleware). Preserve os nomes de módulo que já existem.
 
-**Em qualquer caso:** prefira mover e renomear pequenos blocos a reescrever arquivos inteiros. Cada movimento precisa ser seguido de uma execução do boot, para que um erro de import apareça cedo.
+**Em qualquer caso:** prefira mover e renomear pequenos blocos a reescrever arquivos inteiros. Depois de cada movimento, rode o boot, para que um erro de import apareça cedo.
+
+**Ordem:** a mesma da seção "Ordem de aplicação" do playbook. Primeiro a estrutura sem mudar lógica, depois segurança, depois regra e erros, por fim desempenho e limpeza.
 
 ## Estrutura mínima de um arquivo de rota
 
@@ -64,7 +66,8 @@ O arquivo só registra. Qualquer `if` ou consulta nele é sinal de que a lógica
 - [ ] Existe um entry point que só compõe a aplicação
 - [ ] Nenhum segredo literal no código (busca por AP-01 volta vazia)
 - [ ] Toda consulta está em `models/` ou na camada de dados equivalente
-- [ ] Nenhuma regra de negócio em `routes/` ou `controllers/`
+- [ ] Rotas só fazem roteamento
+- [ ] Controllers concentram o fluxo da aplicação (entrada → serviço → resposta), sem regra de domínio nem SQL
 - [ ] Erros são tratados por um handler central
 - [ ] Nenhuma entidade é devolvida inteira na resposta
 - [ ] Rotas destrutivas ou administrativas estão protegidas

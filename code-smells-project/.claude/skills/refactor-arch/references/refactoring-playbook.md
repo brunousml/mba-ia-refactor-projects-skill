@@ -1,63 +1,82 @@
 # Playbook de refatoração (Fase 3)
 
-Quinze transformações, uma ou mais por anti-pattern. Cada uma mostra o código **antes** e **depois** em Python e em JavaScript. Aplique a transformação que corresponde ao finding do relatório, sem misturar outras no mesmo movimento.
+Dezoito transformações, cada uma ligada a um ou mais anti-patterns do catálogo. Cada uma tem código **antes** e **depois** em Python e em JavaScript. Aplique a transformação do finding sem misturar outras no mesmo movimento.
 
-Regras gerais:
-- Preserve o contrato: método, caminho, status e nomes de campos da resposta.
-- Depois de cada transformação, o boot precisa continuar sem erro.
-- Quando a transformação altera comportamento observável por segurança, registre em "Intentional changes".
+**Sobre os exemplos:**
+- O domínio é fictício (faturas, contas, assinaturas). Adapte nomes e campos ao projeto real.
+- Funções como `json()`, `erro()`, `registrar()` e o objeto `request` são **pseudocódigo** do framework web. Use as equivalentes da stack detectada na Fase 1.
+- Drivers de banco variam: o placeholder pode ser `?`, `%s`, `$1` ou `:nome`, e a API pode ser síncrona, com callback ou com promise. Confira antes de copiar.
 
-Índice: T01 credenciais · T02 SQL parametrizado · T03 separar camadas · T04 hash de senha · T05 serialização explícita · T06 regra no serviço · T07 dependência injetada · T08 guard de administração · T09 consulta em lote · T10 erro central · T11 API moderna · T12 constantes nomeadas · T13 logger · T14 nomes descritivos · T15 remover imports mortos.
+**Regras gerais:**
+- Preserve o contrato: método, caminho, status, nomes de campos e **porta** padrão.
+- Depois de cada grupo de transformações, o boot precisa continuar sem erro.
+- Toda mudança de comportamento observável, mesmo que intencional por segurança, vai para "Intentional changes".
+
+Índice: T01 credenciais · T02 SQL parametrizado · T03 separar camadas · T04 hash de senha · T05 serialização explícita · T06 regra no serviço · T07 dependência injetada · T08 guard de administração · T09 consulta em lote · T10 erro central · T11 API moderna · T12 constantes nomeadas · T13 logger · T14 nomes descritivos · T15 remover código morto · T16 extrair regra duplicada · T17 validar na borda · T18 configuração segura.
 
 ---
 
 ## T01 — Credenciais para configuração por ambiente (AP-01)
 
+O segredo sai do código. Para a aplicação continuar subindo em desenvolvimento e na validação, a ausência da variável gera um valor aleatório e um warning. Em produção (`APP_ENV=production`), a ausência derruba o boot. A porta padrão continua a mesma do projeto original. Crie também um `.env.example` com os nomes das variáveis, sem valores reais.
+
 **Python — antes**
 ```python
-app.config["SECRET_KEY"] = "troque-isto-123"
-DB_PASSWORD = "senha-do-banco-prod"
+app.config["SECRET_KEY"] = "s3gredo-fixo-da-api"
+BILLING_API_KEY = "sk_live_9f8e7d6c"
 ```
 
 **Python — depois**
 ```python
 # config/settings.py
+import logging
 import os
+import secrets
 
-def _obrigatorio(nome):
+logger = logging.getLogger(__name__)
+APP_ENV = os.environ.get("APP_ENV", "development")
+
+def segredo(nome):
     valor = os.environ.get(nome)
-    if not valor:
+    if valor:
+        return valor
+    if APP_ENV == "production":
         raise RuntimeError(f"Variável de ambiente obrigatória ausente: {nome}")
-    return valor
+    logger.warning("%s não definida; usando valor aleatório de desenvolvimento", nome)
+    return secrets.token_hex(32)
 
-SECRET_KEY = _obrigatorio("SECRET_KEY")
-DB_PASSWORD = _obrigatorio("DB_PASSWORD")
-PORT = int(os.environ.get("PORT", "8000"))
+SECRET_KEY = segredo("SECRET_KEY")
+BILLING_API_KEY = os.environ.get("BILLING_API_KEY", "")   # integração desligada se vazio
+PORT = int(os.environ.get("PORT", "8080"))                 # mesmo default do projeto original
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ```
 
 **JavaScript — antes**
 ```js
-const config = { dbPass: "senha-do-banco-prod", paymentKey: "pk_live_abc123" };
+const settings = { dbPassword: "senha-fixa-do-banco", billingKey: "sk_live_9f8e7d6c", port: 8080 };
 ```
 
 **JavaScript — depois**
 ```js
 // config/settings.js
-function obrigatorio(nome) {
-  const valor = process.env[nome];
-  if (!valor) throw new Error(`Variável de ambiente obrigatória ausente: ${nome}`);
-  return valor;
+const crypto = require('crypto');
+const appEnv = process.env.APP_ENV || 'development';
+
+function segredo(nome) {
+  if (process.env[nome]) return process.env[nome];
+  if (appEnv === 'production') throw new Error(`Variável de ambiente obrigatória ausente: ${nome}`);
+  console.warn(`${nome} não definida; usando valor aleatório de desenvolvimento`);
+  return crypto.randomBytes(32).toString('hex');
 }
 
 module.exports = {
-  dbPass: obrigatorio('DB_PASS'),
-  paymentKey: obrigatorio('PAYMENT_KEY'),
-  port: Number(process.env.PORT || 8000),
+  dbPassword: segredo('DB_PASSWORD'),
+  billingKey: process.env.BILLING_KEY || '',
+  port: Number(process.env.PORT || 8080),   // mesmo default do projeto original
 };
 ```
 
-**Atenção:** o segredo que esteve no repositório precisa ser **rotacionado**. Trocar no código não invalida a cópia que já vazou. Registre isso no relatório.
+**Atenção:** um segredo que já esteve no repositório precisa ser **rotacionado**, porque tirá-lo do código não invalida a cópia que vazou. Registre isso. Se algum endpoint devolvia o segredo na resposta, a remoção do campo é mudança intencional.
 
 ---
 
@@ -65,151 +84,188 @@ module.exports = {
 
 **Python — antes**
 ```python
-cursor.execute("SELECT * FROM usuarios WHERE email = '" + email + "' AND senha = '" + senha + "'")
+cursor.execute("SELECT * FROM contas WHERE email = '" + email + "'")
+cursor.execute("UPDATE faturas SET descricao = '" + descricao + "' WHERE id = " + str(fatura_id))
 ```
 
 **Python — depois**
 ```python
-# O placeholder depende do driver: ?, %s ou :nome
-cursor.execute("SELECT * FROM usuarios WHERE email = ? AND senha_hash = ?", (email, senha_hash))
+cursor.execute("SELECT * FROM contas WHERE email = ?", (email,))
+cursor.execute("UPDATE faturas SET descricao = ? WHERE id = ?", (descricao, fatura_id))
+```
+
+**Login:** busque pelo identificador e verifique a senha em código (T04). Nunca compare senha ou hash no SQL.
+
+```python
+conta = cursor.execute("SELECT * FROM contas WHERE email = ?", (email,)).fetchone()
+if conta is None or not verificar_senha(senha, conta["senha_hash"]):
+    return None
 ```
 
 **JavaScript — antes**
 ```js
-db.all(`SELECT * FROM produtos WHERE nome LIKE '%${termo}%'`, (err, rows) => { /* ... */ });
+db.all(`SELECT * FROM faturas WHERE descricao LIKE '%${termo}%'`, callback);
 ```
 
 **JavaScript — depois**
 ```js
-// O placeholder depende do driver: ?, $1 ou @nome
-db.all("SELECT * FROM produtos WHERE nome LIKE ?", [`%${termo}%`], (err, rows) => { /* ... */ });
+db.all('SELECT * FROM faturas WHERE descricao LIKE ?', [`%${termo}%`], callback);
 ```
 
-**Identificadores dinâmicos** (nome de coluna, `ORDER BY`) não podem ser parâmetros. Use lista permitida:
+**Identificadores dinâmicos** (nome de coluna, `ORDER BY`) não podem ser parâmetros. Use uma lista de valores permitidos:
 
 ```python
-COLUNAS_ORDENAVEIS = {"nome", "preco", "criado_em"}
-campo = request.args.get("ordenar", "nome")
-if campo not in COLUNAS_ORDENAVEIS:
-    campo = "nome"
-cursor.execute(f"SELECT * FROM produtos ORDER BY {campo}")
+ORDENAVEIS = {"emitida_em", "valor", "vencimento"}
+campo = request.args.get("ordenar", "emitida_em")
+if campo not in ORDENAVEIS:
+    campo = "emitida_em"
+cursor.execute(f"SELECT * FROM faturas ORDER BY {campo}")   # seguro: campo vem da lista
 ```
 
 ---
 
 ## T03 — Separar um módulo que mistura camadas (AP-03)
 
-**Python — antes** (um arquivo com SQL, regra e rota)
+Mova o código **sem mudar a lógica** primeiro. As correções vêm depois, já no lugar certo.
+
+**Python — antes** (SQL, regra e rota no mesmo arquivo)
 ```python
-# pedidos.py
-@route("POST", "/pedidos")
-def criar_pedido():
+@route("POST", "/faturas")
+def emitir_fatura():
     dados = request.json
     total = 0
-    for item in dados["itens"]:
-        preco = db.execute("SELECT preco FROM produtos WHERE id = ?", (item["produto_id"],)).fetchone()[0]
-        total += preco * item["quantidade"]
-    db.execute("INSERT INTO pedidos (usuario_id, total) VALUES (?, ?)", (dados["usuario_id"], total))
+    for linha in dados["linhas"]:
+        tarifa = db.execute("SELECT tarifa FROM planos WHERE id = ?", (linha["plano_id"],)).fetchone()[0]
+        total += tarifa * linha["meses"]
+    db.execute("INSERT INTO faturas (conta_id, total) VALUES (?, ?)", (dados["conta_id"], total))
     return json({"total": total}, 201)
 ```
 
 **Python — depois**
 ```python
-# models/pedido_model.py: só acesso a dados
-def preco_do_produto(produto_id):
-    return db.execute("SELECT preco FROM produtos WHERE id = ?", (produto_id,)).fetchone()[0]
+# models/fatura_model.py: só acesso a dados
+def tarifa_do_plano(conn, plano_id):
+    return conn.execute("SELECT tarifa FROM planos WHERE id = ?", (plano_id,)).fetchone()[0]
 
-def inserir_pedido(usuario_id, total):
-    cursor = db.execute("INSERT INTO pedidos (usuario_id, total) VALUES (?, ?)", (usuario_id, total))
-    return cursor.lastrowid
+def inserir_fatura(conn, conta_id, total):
+    return conn.execute("INSERT INTO faturas (conta_id, total) VALUES (?, ?)", (conta_id, total)).lastrowid
 
-# services/pedido_service.py: regra de negócio
-def criar(usuario_id, itens):
-    total = sum(pedido_model.preco_do_produto(i["produto_id"]) * i["quantidade"] for i in itens)
-    pedido_id = pedido_model.inserir_pedido(usuario_id, total)
-    return {"pedido_id": pedido_id, "total": total}
+# services/fatura_service.py: regra de negócio
+def emitir(conn, conta_id, linhas):
+    total = sum(fatura_model.tarifa_do_plano(conn, l["plano_id"]) * l["meses"] for l in linhas)
+    fatura_id = fatura_model.inserir_fatura(conn, conta_id, total)
+    return {"fatura_id": fatura_id, "total": total}
 
-# controllers/pedido_controller.py: adaptação HTTP
-def criar(request):
-    dados = request.json()
-    if not dados.get("itens"):
-        return erro("Pedido deve ter pelo menos 1 item", 400)
-    return json(pedido_service.criar(dados["usuario_id"], dados["itens"]), 201)
+# controllers/fatura_controller.py: adaptação HTTP
+def emitir(request):
+    dados = request.json
+    if not dados or not dados.get("linhas"):
+        return erro("Fatura deve ter pelo menos 1 linha", 400)
+    return json(fatura_service.emitir(conexao_da_requisicao(), dados["conta_id"], dados["linhas"]), 201)
 
-# routes/pedido_routes.py: só registro
-registrar("POST", "/pedidos", pedido_controller.criar)
+# routes/fatura_routes.py: só registro
+registrar("POST", "/faturas", fatura_controller.emitir)
 ```
 
 **JavaScript — antes**
 ```js
-app.post('/pedidos', (req, res) => {
+app.post('/faturas', (req, res) => {
   let total = 0;
-  req.body.itens.forEach(i => { /* consulta + soma */ });
-  db.run('INSERT INTO pedidos ...', [req.body.usuarioId, total], function () {
+  // consulta de tarifa por linha + soma...
+  db.run('INSERT INTO faturas (conta_id, total) VALUES (?, ?)', [req.body.contaId, total], function () {
     res.status(201).json({ total });
   });
 });
 ```
 
 **JavaScript — depois**
+
+Se o driver usa callbacks, crie primeiro um adaptador com promises. Em alguns drivers, o id inserido (`lastID`) fica em `this` dentro do callback. Nesse caso, use `function`, não arrow function:
+
 ```js
-// models/pedidoModel.js
-const precoDoProduto = (db, id) => db.get('SELECT preco FROM produtos WHERE id = ?', [id]);
-const inserirPedido = (db, usuarioId, total) => db.run('INSERT INTO pedidos ...', [usuarioId, total]);
+// models/db.js
+function criarDb(driverDb) {
+  return {
+    get: (sql, params = []) => new Promise((ok, falha) =>
+      driverDb.get(sql, params, (err, linha) => (err ? falha(err) : ok(linha)))),
+    all: (sql, params = []) => new Promise((ok, falha) =>
+      driverDb.all(sql, params, (err, linhas) => (err ? falha(err) : ok(linhas)))),
+    run: (sql, params = []) => new Promise((ok, falha) =>
+      driverDb.run(sql, params, function (err) {
+        if (err) return falha(err);
+        ok({ lastID: this.lastID, changes: this.changes });
+      })),
+  };
+}
+module.exports = { criarDb };
+```
 
-// services/pedidoService.js
-async function criar(db, usuarioId, itens) {
+```js
+// models/faturaModel.js
+const tarifaDoPlano = (db, planoId) => db.get('SELECT tarifa FROM planos WHERE id = ?', [planoId]);
+const inserirFatura = (db, contaId, total) =>
+  db.run('INSERT INTO faturas (conta_id, total) VALUES (?, ?)', [contaId, total]);
+
+// services/faturaService.js
+async function emitir(db, contaId, linhas) {
   let total = 0;
-  for (const item of itens) {
-    const { preco } = await precoDoProduto(db, item.produtoId);
-    total += preco * item.quantidade;
+  for (const linha of linhas) {
+    const { tarifa } = await tarifaDoPlano(db, linha.planoId);
+    total += tarifa * linha.meses;
   }
-  const { lastID } = await inserirPedido(db, usuarioId, total);
-  return { pedidoId: lastID, total };
+  const { lastID } = await inserirFatura(db, contaId, total);
+  return { faturaId: lastID, total };
 }
 
-// controllers/pedidoController.js
-async function criar(req, res) {
-  if (!req.body.itens?.length) return res.status(400).json({ erro: 'Pedido deve ter pelo menos 1 item' });
-  res.status(201).json(await pedidoService.criar(req.db, req.body.usuarioId, req.body.itens));
+// controllers/faturaController.js
+async function emitir(req, res) {
+  if (!req.body?.linhas?.length) return res.status(400).json({ erro: 'Fatura deve ter pelo menos 1 linha' });
+  res.status(201).json(await faturaService.emitir(req.app.locals.db, req.body.contaId, req.body.linhas));
 }
 
-// routes/pedidoRoutes.js
-router.post('/pedidos', pedidoController.criar);
+// routes/faturaRoutes.js: asyncHandler leva a rejeição ao handler de erro (T10)
+router.post('/faturas', asyncHandler(faturaController.emitir));
 ```
 
 ---
 
 ## T04 — Hash de senha com algoritmo forte e salt (AP-04)
 
+A verificação nunca lança exceção: um hash em formato inesperado devolve `False`, para o login responder 401 e não 500.
+
 **Python — antes**
 ```python
 import hashlib
-def set_senha(pwd):
-    return hashlib.md5(pwd.encode()).hexdigest()
+def hash_senha(s):
+    return hashlib.sha1(s.encode()).hexdigest()
 ```
 
-**Python — depois** (biblioteca padrão, sem dependência nova)
+**Python — depois** (biblioteca padrão)
 ```python
-import hashlib, hmac, os
+import hashlib
+import hmac
+import os
+
+PARAMS = {"n": 2**14, "r": 8, "p": 1}
 
 def gerar_hash(senha):
     sal = os.urandom(16)
-    digest = hashlib.scrypt(senha.encode(), salt=sal, n=2**14, r=8, p=1)
-    return sal.hex() + ":" + digest.hex()
+    digest = hashlib.scrypt(senha.encode(), salt=sal, **PARAMS)
+    return f"{sal.hex()}:{digest.hex()}"
 
 def verificar_senha(senha, armazenado):
-    sal_hex, digest_hex = armazenado.split(":")
-    digest = hashlib.scrypt(senha.encode(), salt=bytes.fromhex(sal_hex), n=2**14, r=8, p=1)
+    try:
+        sal_hex, digest_hex = armazenado.split(":")
+        digest = hashlib.scrypt(senha.encode(), salt=bytes.fromhex(sal_hex), **PARAMS)
+    except (ValueError, AttributeError):
+        return False
     return hmac.compare_digest(digest.hex(), digest_hex)
 ```
 
 **JavaScript — antes**
 ```js
 function hashCaseiro(senha) {
-  let hash = '';
-  for (let i = 0; i < 10000; i++) hash += Buffer.from(pwd).toString('base64').substring(0, 2);
-  return hash.substring(0, 10);
+  return Buffer.from(senha).toString('base64').split('').reverse().join('');
 }
 ```
 
@@ -219,18 +275,19 @@ const crypto = require('crypto');
 
 function gerarHash(senha) {
   const sal = crypto.randomBytes(16);
-  const digest = crypto.scryptSync(senha, sal, 64);
-  return `${sal.toString('hex')}:${digest.toString('hex')}`;
+  return `${sal.toString('hex')}:${crypto.scryptSync(senha, sal, 64).toString('hex')}`;
 }
 
 function verificarSenha(senha, armazenado) {
-  const [salHex, digestHex] = armazenado.split(':');
+  const [salHex, digestHex] = String(armazenado).split(':');
+  if (!salHex || !digestHex) return false;
+  const esperado = Buffer.from(digestHex, 'hex');
   const digest = crypto.scryptSync(senha, Buffer.from(salHex, 'hex'), 64);
-  return crypto.timingSafeEqual(digest, Buffer.from(digestHex, 'hex'));
+  return esperado.length === digest.length && crypto.timingSafeEqual(digest, esperado);
 }
 ```
 
-**Atenção:** senhas antigas deixam de validar. Recrie o seed com senhas novas e registre a ação. Se houver usuários reais, a migração precisa de reset de senha ou de verificação do hash antigo no primeiro login.
+**Atenção:** senhas antigas deixam de validar. Gere o hash no **seed**, mantendo as mesmas senhas em texto que o seed original usava, para os logins de exemplo continuarem funcionando. Registre a ação.
 
 ---
 
@@ -239,27 +296,29 @@ function verificarSenha(senha, armazenado) {
 **Python — antes**
 ```python
 def to_dict(self):
-    return {"id": self.id, "nome": self.nome, "email": self.email, "senha": self.senha}
+    return {c.name: getattr(self, c.name) for c in self.__table__.columns}   # inclui senha_hash
 ```
 
 **Python — depois**
 ```python
-# serializers/usuario_serializer.py
-def usuario_publico(u):
-    return {"id": u.id, "nome": u.nome, "email": u.email, "tipo": u.tipo}
+# serializers/conta_serializer.py
+def conta_publica(c):
+    return {"id": c.id, "nome": c.nome, "email": c.email, "plano": c.plano}
 ```
 
 **JavaScript — antes**
 ```js
-res.json(usuario);   // inclui senha e hash
+res.json(conta);   // inclui senha_hash
 ```
 
 **JavaScript — depois**
 ```js
-// serializers/usuarioSerializer.js
-const usuarioPublico = (u) => ({ id: u.id, nome: u.nome, email: u.email, tipo: u.tipo });
-res.json(usuarioPublico(usuario));
+// serializers/contaSerializer.js
+const contaPublica = (c) => ({ id: c.id, nome: c.nome, email: c.email, plano: c.plano });
+res.json(contaPublica(conta));
 ```
+
+A remoção de um campo sensível da resposta é mudança intencional. Liste-a.
 
 ---
 
@@ -267,157 +326,180 @@ res.json(usuarioPublico(usuario));
 
 **Python — antes**
 ```python
-@route("POST", "/checkout")
-def checkout():
-    total = sum(i["preco"] * i["qtd"] for i in dados["itens"])
-    if total > 10000:
-        total *= 0.9
+@route("POST", "/assinaturas")
+def assinar():
+    meses = request.json["meses"]
+    valor = TARIFA * meses
+    if meses >= 12:
+        valor *= 0.85
     ...
 ```
 
 **Python — depois**
 ```python
-# services/checkout_service.py
-DESCONTO_ACIMA_DE = 10_000   # ver T12
-TAXA_DESCONTO = 0.10
+# services/assinatura_service.py
+DESCONTO_ANUAL = 0.15      # ver T12
+MESES_PLANO_ANUAL = 12
 
-def calcular_total(itens):
-    total = sum(i["preco"] * i["qtd"] for i in itens)
-    if total > DESCONTO_ACIMA_DE:
-        total *= 1 - TAXA_DESCONTO
-    return total
+def calcular_valor(tarifa, meses):
+    valor = tarifa * meses
+    if meses >= MESES_PLANO_ANUAL:
+        valor *= 1 - DESCONTO_ANUAL
+    return valor
 
-# controllers/checkout_controller.py
-def checkout(request):
-    total = checkout_service.calcular_total(request.json()["itens"])
-    return json({"total": total})
+# controllers/assinatura_controller.py
+def assinar(request):
+    valor = assinatura_service.calcular_valor(TARIFA, request.json["meses"])
+    return json({"valor": valor}, 201)
 ```
 
 **JavaScript — antes**
 ```js
-app.post('/checkout', (req, res) => {
-  let total = req.body.itens.reduce((s, i) => s + i.preco * i.qtd, 0);
-  if (total > 10000) total *= 0.9;
-  res.json({ total });
+app.post('/assinaturas', (req, res) => {
+  let valor = TARIFA * req.body.meses;
+  if (req.body.meses >= 12) valor *= 0.85;
+  res.status(201).json({ valor });
 });
 ```
 
 **JavaScript — depois**
 ```js
-// services/checkoutService.js
-const DESCONTO_ACIMA_DE = 10000;
-const TAXA_DESCONTO = 0.1;
+// services/assinaturaService.js
+const DESCONTO_ANUAL = 0.15;
+const MESES_PLANO_ANUAL = 12;
 
-function calcularTotal(itens) {
-  const total = itens.reduce((soma, i) => soma + i.preco * i.qtd, 0);
-  return total > DESCONTO_ACIMA_DE ? total * (1 - TAXA_DESCONTO) : total;
+function calcularValor(tarifa, meses) {
+  const valor = tarifa * meses;
+  return meses >= MESES_PLANO_ANUAL ? valor * (1 - DESCONTO_ANUAL) : valor;
 }
 
-// controllers/checkoutController.js
-const checkout = (req, res) => res.json({ total: checkoutService.calcularTotal(req.body.itens) });
+// controllers/assinaturaController.js
+const assinar = (req, res) =>
+  res.status(201).json({ valor: assinaturaService.calcularValor(TARIFA, req.body.meses) });
 ```
 
 ---
 
-## T07 — Estado global substituído por instância injetada (AP-06)
+## T07 — Estado global substituído por dependência injetada (AP-06)
 
 **Python — antes**
 ```python
-db_connection = None
-def get_db():
-    global db_connection
-    if db_connection is None:
-        db_connection = driver.connect(CAMINHO_BANCO)
-    return db_connection
+_conexao = None
+def obter_conexao():
+    global _conexao
+    if _conexao is None:
+        _conexao = driver.connect(CAMINHO_BANCO)   # uma conexão para todas as requisições
+    return _conexao
 ```
 
-**Python — depois**
+**Python — depois** (uma conexão por requisição, fechada no fim)
 ```python
 # models/banco.py
 class Banco:
     def __init__(self, caminho):
         self._caminho = caminho
-        self._conexao = None
 
-    def conexao(self):
-        if self._conexao is None:
-            self._conexao = conectar(self._caminho)
-        return self._conexao
+    def abrir(self):
+        return driver.connect(self._caminho)
 
-# entry point: cria uma vez e passa adiante
-banco = Banco(settings.DB_PATH)
-pedido_model = PedidoModel(banco)
+# entry point: o banco é criado uma vez; a conexão é aberta por requisição
+banco = Banco(settings.CAMINHO_BANCO)
+
+def antes_da_requisicao(contexto):
+    contexto.conn = banco.abrir()
+
+def depois_da_requisicao(contexto, erro=None):
+    conn = getattr(contexto, "conn", None)
+    if conn is not None:
+        if erro is None:
+            conn.commit()
+        else:
+            conn.rollback()   # escrita parcial não vaza para a próxima requisição
+        conn.close()
 ```
+
+Use os hooks de início e fim de requisição do framework para chamar essas duas funções.
 
 **JavaScript — antes**
 ```js
-let cache = {};
-function registrar(chave, valor) { cache[chave] = valor; }
+let contadores = {};
+function contar(chave) { contadores[chave] = (contadores[chave] || 0) + 1; }
 ```
 
 **JavaScript — depois**
 ```js
-// utils/cache.js
-class Cache {
-  #itens = new Map();
-  definir(chave, valor) { this.#itens.set(chave, valor); }
-  obter(chave) { return this.#itens.get(chave); }
+// utils/contadores.js
+class Contadores {
+  #valores = new Map();
+  contar(chave) { this.#valores.set(chave, (this.#valores.get(chave) || 0) + 1); }
+  valor(chave) { return this.#valores.get(chave) || 0; }
 }
 
 // entry point
-const cache = new Cache();
-const checkoutService = criarCheckoutService({ cache });
+const contadores = new Contadores();
+app.locals.contadores = contadores;   // injetado; nenhum módulo cria o próprio
 ```
 
 ---
 
 ## T08 — Guard de administração (AP-07)
 
+A rota continua registrada. Por padrão ela responde **403**. Com a flag ligada, exige o token de administração.
+
 **Python — antes**
 ```python
-@route("POST", "/admin/reset")
-def reset():
-    db.execute("DELETE FROM pedidos")
+@route("POST", "/admin/limpar-faturas")
+def limpar():
+    db.execute("DELETE FROM faturas")
     return json({"ok": True})
 ```
 
 **Python — depois**
 ```python
 # middlewares/admin.py
+import hmac
+
 def exigir_admin(handler):
-    def envolvido(request, *args, **kwargs):
+    def envolvido(*args, **kwargs):
         if not settings.ENABLE_ADMIN_ROUTES:
             return json({"erro": "Recurso desabilitado"}, 403)
-        if not verificar_token_admin(request.headers.get("Authorization", "")):
+        token = request.headers.get("X-Admin-Token", "")
+        if not settings.ADMIN_TOKEN or not hmac.compare_digest(token, settings.ADMIN_TOKEN):
             return json({"erro": "Não autorizado"}, 401)
-        return handler(request, *args, **kwargs)
+        return handler(*args, **kwargs)
     return envolvido
 
 # routes/admin_routes.py
-registrar("POST", "/admin/reset", exigir_admin(admin_controller.reset))
+registrar("POST", "/admin/limpar-faturas", exigir_admin(admin_controller.limpar))
 ```
 
 **JavaScript — antes**
 ```js
-app.post('/admin/reset', (req, res) => {
-  db.run('DELETE FROM pedidos', () => res.json({ ok: true }));
+app.post('/admin/limpar-faturas', (req, res) => {
+  db.run('DELETE FROM faturas', () => res.json({ ok: true }));
 });
 ```
 
 **JavaScript — depois**
 ```js
 // middlewares/admin.js
+const crypto = require('crypto');
+
 function exigirAdmin(req, res, next) {
-  if (!config.enableAdminRoutes) return res.status(403).json({ erro: 'Recurso desabilitado' });
-  if (!verificarTokenAdmin(req.headers.authorization)) return res.status(401).json({ erro: 'Não autorizado' });
+  if (!settings.enableAdminRoutes) return res.status(403).json({ erro: 'Recurso desabilitado' });
+  const token = Buffer.from(req.get('X-Admin-Token') || '');
+  const esperado = Buffer.from(settings.adminToken || '');
+  if (!esperado.length || token.length !== esperado.length || !crypto.timingSafeEqual(token, esperado)) {
+    return res.status(401).json({ erro: 'Não autorizado' });
+  }
   next();
 }
 
 // routes/adminRoutes.js
-router.post('/admin/reset', exigirAdmin, adminController.reset);
+router.post('/admin/limpar-faturas', exigirAdmin, adminController.limpar);
 ```
 
-**Nota:** a flag `ENABLE_ADMIN_ROUTES` vem desligada por default. Registre no relatório que, sem a flag, a rota responde 403, e como ligá-la para testes.
+**Validação:** chame a rota com a flag desligada (espera 403) e com a flag ligada e o token (espera o comportamento original). Registre os dois resultados.
 
 ---
 
@@ -425,53 +507,54 @@ router.post('/admin/reset', exigirAdmin, adminController.reset);
 
 **Python — antes**
 ```python
-pedidos = db.execute("SELECT * FROM pedidos").fetchall()
-for p in pedidos:
-    itens = db.execute("SELECT * FROM itens WHERE pedido_id = ?", (p["id"],)).fetchall()
-    p["itens"] = itens
+faturas = conn.execute("SELECT * FROM faturas").fetchall()
+for f in faturas:
+    f["linhas"] = conn.execute("SELECT * FROM linhas_fatura WHERE fatura_id = ?", (f["id"],)).fetchall()
 ```
 
 **Python — depois**
 ```python
 from collections import defaultdict
 
-pedidos = db.execute("SELECT * FROM pedidos").fetchall()
-ids = [p["id"] for p in pedidos]
+faturas = [dict(f) for f in conn.execute("SELECT * FROM faturas").fetchall()]   # linhas do driver são imutáveis
+ids = [f["id"] for f in faturas]
+por_fatura = defaultdict(list)
 if ids:
-    marcadores = ",".join("?" * len(ids))   # só "?" gerados, nenhuma entrada do usuário
-    linhas = db.execute(f"SELECT * FROM itens WHERE pedido_id IN ({marcadores})", ids).fetchall()
-    por_pedido = defaultdict(list)
-    for linha in linhas:
-        por_pedido[linha["pedido_id"]].append(linha)
-    for p in pedidos:
-        p["itens"] = por_pedido[p["id"]]
+    marcadores = ",".join("?" * len(ids))   # só "?" gerados; nenhuma entrada do cliente
+    for linha in conn.execute(f"SELECT * FROM linhas_fatura WHERE fatura_id IN ({marcadores})", ids):
+        por_fatura[linha["fatura_id"]].append(dict(linha))
+for f in faturas:
+    f["linhas"] = por_fatura[f["id"]]
 ```
+
+Com ORM, o equivalente é carregar a relação de forma antecipada (eager loading / `JOIN`) ou contar com `GROUP BY` em vez de carregar a lista.
 
 **JavaScript — antes**
 ```js
-for (const p of pedidos) {
-  p.itens = await db.all('SELECT * FROM itens WHERE pedido_id = ?', [p.id]);
+for (const f of faturas) {
+  f.linhas = await db.all('SELECT * FROM linhas_fatura WHERE fatura_id = ?', [f.id]);
 }
 ```
 
 **JavaScript — depois**
 ```js
-const ids = pedidos.map(p => p.id);
+const ids = faturas.map(f => f.id);
+const porFatura = new Map(ids.map(id => [id, []]));
 if (ids.length) {
   const marcadores = ids.map(() => '?').join(',');
-  const linhas = await db.all(`SELECT * FROM itens WHERE pedido_id IN (${marcadores})`, ids);
-  const porPedido = new Map();
-  for (const linha of linhas) {
-    if (!porPedido.has(linha.pedido_id)) porPedido.set(linha.pedido_id, []);
-    porPedido.get(linha.pedido_id).push(linha);
-  }
-  pedidos.forEach(p => { p.itens = porPedido.get(p.id) || []; });
+  const linhas = await db.all(`SELECT * FROM linhas_fatura WHERE fatura_id IN (${marcadores})`, ids);
+  for (const linha of linhas) porFatura.get(linha.fatura_id).push(linha);
 }
+faturas.forEach(f => { f.linhas = porFatura.get(f.id); });
 ```
+
+A ordem dos itens no resultado precisa continuar a mesma do original. Se o original não ordenava, mantenha a ordem de inserção ou use `ORDER BY id`.
 
 ---
 
 ## T10 — Tratamento de erro central (AP-09)
+
+O handler trata os erros de domínio e os não tratados. Os **erros HTTP nativos do framework** (404 de rota inexistente, 405, 415) passam sem alteração, para o contrato não mudar.
 
 **Python — antes**
 ```python
@@ -484,27 +567,34 @@ except:
 **Python — depois**
 ```python
 # middlewares/erros.py
+import logging
+logger = logging.getLogger(__name__)
+
 class ErroDeNegocio(Exception):
     def __init__(self, mensagem, status=400):
         super().__init__(mensagem)
         self.status = status
 
 def tratar_erro(erro):
+    if isinstance(erro, ErroHttpDoFramework):   # a classe base de erros HTTP da stack
+        return erro                             # mantém 404/405/415 como o framework faria
     if isinstance(erro, ErroDeNegocio):
         return json({"erro": str(erro)}, erro.status)
     logger.exception("Erro não tratado")
-    return json({"erro": "Erro interno"}, 500)
+    return json({"erro": "Erro interno"}, 500)  # mensagem genérica; detalhe só no log
 
 # serviço: lança o erro de domínio
 if saldo < valor:
     raise ErroDeNegocio("Saldo insuficiente", 422)
 ```
 
+Registre `tratar_erro` como handler global de exceções no entry point.
+
 **JavaScript — antes**
 ```js
 app.post('/x', async (req, res) => {
   try { res.json(await servico.executar(req.body)); }
-  catch (e) { res.status(500).json({ erro: 'Erro interno' }); }
+  catch (e) { res.status(500).json({ erro: e.message }); }
 });
 ```
 
@@ -515,17 +605,20 @@ class ErroDeNegocio extends Error {
   constructor(mensagem, status = 400) { super(mensagem); this.status = status; }
 }
 
+// Frameworks que não capturam rejeição de handler async precisam deste wrapper
+const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 function tratarErro(erro, req, res, next) {
   if (erro instanceof ErroDeNegocio) return res.status(erro.status).json({ erro: erro.message });
-  logger.error({ err: erro }, 'Erro não tratado');
+  console.error('Erro não tratado', erro);
   res.status(500).json({ erro: 'Erro interno' });
 }
 
-// registrado por último no entry point
+// entry point: registrado por último
 app.use(tratarErro);
 ```
 
-**Atenção:** erros que hoje viram 500 e viram 400 com a mudança são alterações de comportamento. Liste-as.
+**Atenção:** se uma resposta de erro mudar (500 que vira 400, texto que vira JSON), registre como mudança intencional.
 
 ---
 
@@ -534,28 +627,35 @@ app.use(tratarErro);
 **Python — antes**
 ```python
 from datetime import datetime
-agora = datetime.utcnow()
+emitida_em = Column(DateTime, default=datetime.utcnow)   # referência, não chamada
+prazo_vencido = vencimento < datetime.utcnow()
 ```
 
 **Python — depois**
 ```python
 from datetime import datetime, timezone
-agora = datetime.now(timezone.utc)
-# Se o banco guarda datetimes sem fuso, converta na borda, durante a transição:
-agora_naive = agora.replace(tzinfo=None)
+
+def agora_utc():
+    # Se o banco guarda datetime sem fuso, mantenha sem fuso para não comparar aware com naive
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+emitida_em = Column(DateTime, default=agora_utc)
+prazo_vencido = vencimento < agora_utc()
 ```
 
 **JavaScript — antes**
 ```js
-const buffer = new Buffer(texto);
+const payload = new Buffer(texto);
+const partes = url.parse(endereco);
 ```
 
 **JavaScript — depois**
 ```js
-const buffer = Buffer.from(texto, 'utf8');
+const payload = Buffer.from(texto, 'utf8');
+const partes = new URL(endereco);
 ```
 
-Para as demais entradas da tabela de AP-10, aplique o mesmo critério: troque pelo equivalente da versão instalada e confirme na documentação da versão.
+Para as demais entradas da tabela do AP-10, troque pelo equivalente da versão instalada e confirme na documentação dela.
 
 ---
 
@@ -563,37 +663,37 @@ Para as demais entradas da tabela de AP-10, aplique o mesmo critério: troque pe
 
 **Python — antes**
 ```python
-if total > 10000:
-    desconto = total * 0.1
-elif total > 5000:
-    desconto = total * 0.05
+if consumo > 20000:
+    taxa = 0.08
+elif consumo > 8000:
+    taxa = 0.04
 ```
 
 **Python — depois**
 ```python
 # config/regras.py
-FAIXAS_DESCONTO = [(10_000, 0.10), (5_000, 0.05), (1_000, 0.02)]   # (acima de, taxa)
+FAIXAS_DE_TAXA = [(20_000, 0.08), (8_000, 0.04)]   # (acima de, taxa)
 
-def calcular_desconto(total):
-    for limite, taxa in FAIXAS_DESCONTO:
-        if total > limite:
-            return total * taxa
+def taxa_por_consumo(consumo):
+    for limite, taxa in FAIXAS_DE_TAXA:
+        if consumo > limite:
+            return taxa
     return 0
 ```
 
 **JavaScript — antes**
 ```js
-if (status === 'PAID' && valor > 500) desconto = valor * 0.05;
+if (fatura.estado === 'QUITADA' && fatura.atraso > 30) multa = fatura.valor * 0.02;
 ```
 
 **JavaScript — depois**
 ```js
 // config/regras.js
-const STATUS_PAGO = 'PAID';
-const LIMITE_DESCONTO = 500;
-const TAXA_DESCONTO = 0.05;
+const ESTADO_QUITADA = 'QUITADA';
+const DIAS_CARENCIA = 30;
+const TAXA_MULTA = 0.02;
 
-if (status === STATUS_PAGO && valor > LIMITE_DESCONTO) desconto = valor * TAXA_DESCONTO;
+if (fatura.estado === ESTADO_QUITADA && fatura.atraso > DIAS_CARENCIA) multa = fatura.valor * TAXA_MULTA;
 ```
 
 ---
@@ -602,7 +702,7 @@ if (status === STATUS_PAGO && valor > LIMITE_DESCONTO) desconto = valor * TAXA_D
 
 **Python — antes**
 ```python
-print("ENVIANDO EMAIL: pedido " + str(pedido_id) + " para " + email)
+print("Cobrança enviada para " + conta.email + " com token " + api_token)
 ```
 
 **Python — depois**
@@ -610,21 +710,20 @@ print("ENVIANDO EMAIL: pedido " + str(pedido_id) + " para " + email)
 import logging
 logger = logging.getLogger(__name__)
 
-logger.info("Notificação enviada: pedido=%s", pedido_id)   # sem e-mail completo, sem dado de pagamento
+logger.info("Cobrança enviada: conta_id=%s", conta.id)   # sem e-mail, sem token
 ```
 
 **JavaScript — antes**
 ```js
-console.log(`Processando cartão ${cc} na chave ${config.paymentKey}`);
+console.log(`Cobrando conta ${conta.email} com a chave ${settings.billingKey}`);
 ```
 
 **JavaScript — depois**
 ```js
-// Logger estruturado (ex.: pino)
-logger.info({ pedidoId, cartaoFinal: cc.slice(-4) }, 'Processando pagamento');
+logger.info({ contaId: conta.id }, 'Cobrança enviada');   // ex.: pino; sem e-mail, sem chave
 ```
 
-**Regra:** número de cartão, senha e chave nunca entram em log. Use só os últimos dígitos quando for indispensável.
+**Regra:** senha, chave, token e número de cartão nunca entram em log. Se for indispensável, use só os últimos dígitos.
 
 ---
 
@@ -632,63 +731,198 @@ logger.info({ pedidoId, cartaoFinal: cc.slice(-4) }, 'Processando pagamento');
 
 **Python — antes**
 ```python
-u, e, p = dados["usr"], dados["eml"], dados["pwd"]
+a, t, d = corpo["acc"], corpo["tkn"], corpo["dt"]
 ```
 
 **Python — depois**
 ```python
-# Os nomes de campo da API continuam os mesmos; só a variável muda.
-nome, email, senha = dados["usr"], dados["eml"], dados["pwd"]
+# Os nomes de campo do contrato ("acc", "tkn", "dt") continuam; só a variável muda.
+conta_id, token_acesso, data_inicio = corpo["acc"], corpo["tkn"], corpo["dt"]
 ```
 
 **JavaScript — antes**
 ```js
-let cc = req.body.card;
+const { acc: a, tkn: t } = req.body;
 ```
 
 **JavaScript — depois**
 ```js
-const numeroCartao = req.body.card;   // o campo de entrada continua "card"
+const { acc: contaId, tkn: tokenAcesso } = req.body;   // a entrada continua "acc" e "tkn"
 ```
-
-**Regra:** mantenha os nomes de campo do contrato na borda (controller ou serializer). Renomeie apenas variáveis internas.
 
 ---
 
-## T15 — Remover imports mortos (AP-12)
+## T15 — Remover código morto (AP-12)
 
 **Python — antes**
 ```python
-import os, sys, json, datetime
-from web import jsonify   # sem uso
+import re, math, csv   # math e csv sem uso
+
+def esta_vencida(self):
+    if self.vencimento:
+        if self.vencimento < agora_utc():
+            return True
+        else:
+            return False
+    else:
+        return False
 ```
 
 **Python — depois**
 ```python
-# Remova os imports que o linter marcar como não usados (F401 no ruff/pyflakes).
+import re
+
+def esta_vencida(self):
+    return bool(self.vencimento) and self.vencimento < agora_utc()
 ```
 
 **JavaScript — antes**
 ```js
-const fs = require('fs');   // não usado
-const { config } = require('./utils');
+const path = require('path');   // sem uso
+let totalProcessado = 0;        // exportado e nunca lido
+module.exports = { gerarFatura, totalProcessado };
 ```
 
 **JavaScript — depois**
 ```js
-const { config } = require('./utils');
-// Confirme com o linter (no-unused-vars) antes de remover.
+module.exports = { gerarFatura };
 ```
+
+Antes de remover, busque o nome no projeto inteiro. Se ninguém usa, remova.
+
+---
+
+## T16 — Extrair regra duplicada (AP-13)
+
+Escolha a versão mais completa da regra como a única. Se as cópias divergiam, unificar muda o comportamento da cópia mais fraca: registre como mudança intencional.
+
+**Python — antes**
+```python
+# criar_fatura
+if valor <= 0: return erro("Valor inválido", 400)
+if len(descricao) > 140: return erro("Descrição longa", 400)
+# atualizar_fatura (cópia que esqueceu a descrição)
+if valor <= 0: return erro("Valor inválido", 400)
+```
+
+**Python — depois**
+```python
+# validators/fatura_validator.py
+def validar_fatura(dados):
+    if dados.get("valor") is None or dados["valor"] <= 0:
+        return "Valor inválido"
+    if len(dados.get("descricao", "")) > 140:
+        return "Descrição longa"
+    return None
+
+# nos dois controllers
+mensagem = validar_fatura(dados)
+if mensagem:
+    return erro(mensagem, 400)
+```
+
+**JavaScript — antes**
+```js
+// três handlers repetem a mesma regra de "vencida"
+const vencida = f.vencimento && new Date(f.vencimento) < new Date() && f.estado !== 'QUITADA';
+```
+
+**JavaScript — depois**
+```js
+// models/fatura.js
+const estaVencida = (f, agora = new Date()) =>
+  Boolean(f.vencimento) && new Date(f.vencimento) < agora && f.estado !== ESTADO_QUITADA;
+
+// nos handlers
+const vencida = estaVencida(f);
+```
+
+---
+
+## T17 — Validar a entrada na borda (AP-14)
+
+Tipo errado, faixa inválida e corpo ausente devolvem **400** com mensagem clara, nunca 500.
+
+**Python — antes**
+```python
+dados = request.json
+if dados["meses"] < 1:   # string -> TypeError -> 500; corpo null -> TypeError
+    ...
+```
+
+**Python — depois**
+```python
+def inteiro_em_faixa(valor, minimo, maximo):
+    return isinstance(valor, int) and not isinstance(valor, bool) and minimo <= valor <= maximo
+
+dados = request.json
+if not isinstance(dados, dict):
+    return erro("Corpo JSON inválido", 400)
+if not inteiro_em_faixa(dados.get("meses"), 1, 36):
+    return erro("meses deve ser um inteiro entre 1 e 36", 400)
+```
+
+**JavaScript — antes**
+```js
+const total = req.body.quantidade * tarifa;   // aceita negativo, string e undefined
+```
+
+**JavaScript — depois**
+```js
+const quantidade = req.body?.quantidade;
+if (!Number.isInteger(quantidade) || quantidade < 1) {
+  return res.status(400).json({ erro: 'quantidade deve ser um inteiro positivo' });
+}
+const total = quantidade * tarifa;
+```
+
+**Atenção:** um caso que antes respondia 500 e agora responde 400 é mudança intencional. Já um caso que antes era aceito e passa a ser rejeitado muda o contrato. Só rejeite valores que o domínio claramente não permite (negativos, tipo errado) e registre.
+
+---
+
+## T18 — Configuração segura (AP-15)
+
+**Python — antes**
+```python
+app.run(debug=True)
+papel = dados.get("papel", "leitor")   # cliente escolhe virar administrador
+```
+
+**Python — depois**
+```python
+app.run(host=settings.HOST, port=settings.PORT, debug=settings.DEBUG)   # DEBUG vem do ambiente, default false
+
+PAPEL_PADRAO = "leitor"
+papel = PAPEL_PADRAO   # o papel não vem do cadastro público
+if "papel" in dados and dados["papel"] != PAPEL_PADRAO and not requisitante_eh_admin(request):
+    return erro("Sem permissão para definir papel", 403)
+```
+
+**JavaScript — antes**
+```js
+const senha = req.body.senha || 'senha-padrao';
+```
+
+**JavaScript — depois**
+```js
+const senha = req.body.senha;
+if (!senha) return res.status(400).json({ erro: 'senha é obrigatória' });
+```
+
+**Atenção:**
+- Se o original aceitava o campo de papel, rejeitá-lo é mudança intencional. Registre.
+- Se a linha de base cria contas privilegiadas pelo endpoint público, a validação dessa chamada vai divergir de propósito.
+- Debug desligado por default muda só o modo do servidor, não as respostas.
 
 ---
 
 ## Ordem de aplicação
 
-1. T01 (segredos) antes de tudo: é o risco de maior impacto e não muda comportamento.
-2. T02 (SQL) antes de mover código: o movimento copia a consulta, e ela já deve estar segura.
-3. T04 e T05 (senha e serialização) junto com a recriação do seed.
-4. T03, T06, T07 (estrutura e regra).
-5. T08, T10 (guards e erros).
-6. T09, T11, T12, T13, T14, T15 (limpeza sem mudança de contrato).
+Esta é a única ordem. O `SKILL.md` e as guidelines a seguem.
 
-Depois de cada grupo, suba a aplicação e rode a comparação com o snapshot.
+1. **Estrutura sem mudar lógica.** Crie a configuração, as camadas e o entry point, e mova o código para o lugar (T03). Suba a aplicação depois de cada domínio movido.
+2. **Segurança.** T01, T02, T04 (com o seed refeito), T05, T08, T18.
+3. **Regra e erros.** T06, T07, T10, T16, T17.
+4. **Desempenho e limpeza.** T09, T11, T12, T13, T14, T15.
+
+Depois de cada grupo, suba a aplicação e compare com o snapshot.

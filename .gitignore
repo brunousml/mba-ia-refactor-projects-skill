@@ -10,3 +10,7 @@ venv/
 # SQLite
 *.db
 instance/
+
+# Instruções locais do Claude Code (não fazem parte da entrega)
+CLAUDE.md
+CLAUDE.md.off
