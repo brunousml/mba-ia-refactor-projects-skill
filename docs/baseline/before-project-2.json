@@ -1,0 +1,68 @@
+[
+  {
+    "id": "checkout-ok-usuario-novo",
+    "status": 200,
+    "corpo": {
+      "msg": "Sucesso",
+      "enrollment_id": 2
+    }
+  },
+  {
+    "id": "checkout-ok-usuario-existente",
+    "status": 200,
+    "corpo": {
+      "msg": "Sucesso",
+      "enrollment_id": 3
+    }
+  },
+  {
+    "id": "checkout-recusado",
+    "status": 400,
+    "corpo": "Pagamento recusado"
+  },
+  {
+    "id": "checkout-curso-inexistente",
+    "status": 404,
+    "corpo": "Curso não encontrado"
+  },
+  {
+    "id": "checkout-400-campos",
+    "status": 400,
+    "corpo": "Bad Request"
+  },
+  {
+    "id": "relatorio-financeiro",
+    "status": 200,
+    "corpo": [
+      {
+        "course": "Clean Architecture",
+        "revenue": 1994,
+        "students": [
+          {
+            "student": "Leonan",
+            "paid": 997
+          },
+          {
+            "student": "Leonan",
+            "paid": 997
+          }
+        ]
+      },
+      {
+        "course": "Docker",
+        "revenue": 497,
+        "students": [
+          {
+            "student": "Guilherme",
+            "paid": 497
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "usuario-deletar",
+    "status": 200,
+    "corpo": "Usuário deletado, mas as matrículas e pagamentos ficaram sujos no banco."
+  }
+]

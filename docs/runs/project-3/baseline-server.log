@@ -1,0 +1,49 @@
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /users HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /users/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mGET /users/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[35m[1mPOST /users HTTP/1.1[0m" 201 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /users HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /users HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /users HTTP/1.1[0m" 409 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "PUT /users/4 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mPUT /users/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /users/1/tasks HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mGET /users/999/tasks HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "POST /login HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /login HTTP/1.1[0m" 401 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /login HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /tasks HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /tasks/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mGET /tasks/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[35m[1mPOST /tasks HTTP/1.1[0m" 201 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /tasks HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /tasks HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /tasks HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mPOST /tasks HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "PUT /tasks/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mPUT /tasks/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPUT /tasks/1 HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /tasks/search?q=bug HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /tasks/search?status=pending&priority=1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /tasks/stats HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /reports/summary HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /reports/user/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mGET /reports/user/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "GET /categories HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[35m[1mPOST /categories HTTP/1.1[0m" 201 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[31m[1mPOST /categories HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "PUT /categories/5 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mPUT /categories/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "DELETE /tasks/10 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mDELETE /tasks/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "DELETE /categories/5 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mDELETE /categories/999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "DELETE /users/4 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:59:22] "[33mDELETE /users/999 HTTP/1.1[0m" 404 -

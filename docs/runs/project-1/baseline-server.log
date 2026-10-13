@@ -1,0 +1,40 @@
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /produtos HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /produtos/busca?q=mouse HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /produtos/busca?categoria=informatica&preco_min=100&preco_max=500 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /produtos/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[33mGET /produtos/9999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[35m[1mPOST /produtos HTTP/1.1[0m" 201 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /produtos HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /produtos HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[35m[1mPOST /produtos HTTP/1.1[0m" 500 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "PUT /produtos/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[33mPUT /produtos/9999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPUT /produtos/1 HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /usuarios HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /usuarios/1 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[33mGET /usuarios/9999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[35m[1mPOST /usuarios HTTP/1.1[0m" 201 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /usuarios HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "POST /login HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /login HTTP/1.1[0m" 401 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /login HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[35m[1mPOST /pedidos HTTP/1.1[0m" 201 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /pedidos HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /pedidos HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /pedidos HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /pedidos/usuario/2 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "PUT /pedidos/1/status HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPUT /pedidos/1/status HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "GET /relatorios/vendas HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "DELETE /produtos/11 HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[33mDELETE /produtos/9999 HTTP/1.1[0m" 404 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "POST /admin/query HTTP/1.1" 200 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "[31m[1mPOST /admin/query HTTP/1.1[0m" 400 -
+127.0.0.1 - - [13/Oct/2026 17:56:49] "POST /admin/reset-db HTTP/1.1" 200 -
