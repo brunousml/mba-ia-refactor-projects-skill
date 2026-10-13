@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Etapa 3b concluída:** a revisão do checkpoint 1 foi feita por 3 subagentes independentes (análise manual, skill, baseline/scripts) e as correções foram aplicadas. Próximo: rodar as Fases 1–2 headless no projeto 1.
+**Projeto 1, Fases 1–2 concluídas.** Relatório em [`reports/audit-project-1.md`](../reports/audit-project-1.md). Aguardando revisão antes da Fase 3.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 2. Análise manual | Feito e revisado | [`docs/analise-manual.md`](analise-manual.md) |
 | 3. Skill | v2 (pós-revisão) | [`code-smells-project/.claude/skills/refactor-arch/`](../code-smells-project/.claude/skills/refactor-arch/) |
 | 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
-| 4. Projeto 1 (Fases 1–2 headless) | Próximo | — |
+| 4. Projeto 1 (Fases 1–2 headless) | Feito; Fase 3 aguarda revisão | [relatório](../reports/audit-project-1.md), [log](runs/project-1/phase-1-2.log) |
 | 5. Projeto 2 | Pendente | — |
 | 6. Projeto 3 | Pendente | — |
 | 7. Fechamento e README | Pendente | — |
@@ -79,11 +79,31 @@ Três subagentes revisaram, cada um, uma parte do trabalho. O que foi corrigido:
 - **O `CLAUDE.md` da raiz do fork está no `.gitignore`.** Ele vira `CLAUDE.md.off` durante as execuções headless, para não dar à skill informação sobre os projetos.
 - **Comando headless:** `--add-dir ../reports`, porque o relatório é gravado fora do diretório do projeto.
 
+## Projeto 1: resultado das Fases 1–2
+
+Comando: `claude -p "/refactor-arch ../reports/audit-project-1.md" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, rodado em `code-smells-project/` com o `CLAUDE.md` da raiz renomeado para `.off`.
+
+| Critério | Resultado |
+| --- | --- |
+| Stack detectada | Python 3.13 (versão do `.venv`) + Flask 3.1.1, flask-cors 5.0.1, sqlite3 |
+| Domínio | E-commerce (produtos, usuários/login, pedidos com estoque, relatório de vendas) |
+| Arquivos | 4 (`app.py`, `controllers.py`, `database.py`, `models.py`), ~780 linhas |
+| Rotas inventariadas | 19, o mesmo total da linha de base |
+| Findings | 14: CRITICAL 4, HIGH 4, MEDIUM 4, LOW 2 |
+| Cobertura da análise manual | 13 de 13 itens encontrados |
+| Linhas | Amostra de 10 referências conferida contra o código: todas exatas |
+| Pausa | Terminou em `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]`; `git status` mostrou só o relatório e o log |
+
+Divergências em relação à análise manual (decisões da skill, não erros):
+- Classificou a arquitetura como "camadas parciais", e não como monolito, porque já existem `models.py` e `controllers.py`.
+- Não marcou AP-03 (god module), porque nenhum arquivo junta as três responsabilidades. Pelo catálogo, esse caso vira AP-05, o mesmo critério da análise manual.
+- Não encontrou API deprecated no projeto 1. Correto: o projeto 1 não usa nenhuma.
+
 ## Próximo passo
 
-1. `mv CLAUDE.md CLAUDE.md.off`
-2. `cd code-smells-project && claude -p "/refactor-arch ../reports/audit-project-1.md" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, com saída em `docs/runs/project-1/phase-1-2.log`.
-3. Conferir com `git status` que a Fase 2 não alterou código. Checkpoint: revisão do relatório antes da Fase 3.
+1. Revisão do relatório pelo usuário.
+2. Fase 3: `cd code-smells-project && claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, com saída em `docs/runs/project-1/phase-3.log`.
+3. Verificação externa: `rm -f loja.db`, subir, rodar `smoke.py` e `compare.py` contra a linha de base.
 
 ## Checklist de entrega (enunciado)
 
