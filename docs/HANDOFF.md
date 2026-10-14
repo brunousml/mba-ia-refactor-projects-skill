@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Os 3 projetos foram concluídos (Fases 1–3) e verificados por fora.** Próximo: fechamento (sincronizar a skill, escrever o README, restaurar o `CLAUDE.md` e fazer o push com confirmação).
+**Entrega pronta localmente.** Os 3 projetos foram refatorados e verificados, o [README](../README.md) foi escrito e o `CLAUDE.md` restaurado. Falta só o push, que depende de confirmação.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
 | 5. Projeto 2 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log), [log 3](runs/project-2/phase-3.log), [diff](runs/project-2/diff.md), [diff admin ligado](runs/project-2/diff-admin-on.md) |
 | 6. Projeto 3 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-3.md), [log 1–2](runs/project-3/phase-1-2.log), [log 3](runs/project-3/phase-3.log), [diff](runs/project-3/diff.md), [diff admin ligado](runs/project-3/diff-admin-on.md) |
-| 7. Fechamento e README | Pendente | — |
+| 7. Fechamento e README | Feito (falta o push) | [README](../README.md), [enunciado original](ENUNCIADO.md) |
 
 ## Linha de base
 
@@ -209,22 +209,24 @@ Checagens manuais:
 
 A skill deixou o app original no ar na 5001 (o `kill` foi negado no headless), igual ao projeto 1. Encerrei à mão.
 
+## Fechamento
+
+- As 3 cópias da skill são idênticas (`diff -r` vazio).
+- O enunciado original foi movido para [`docs/ENUNCIADO.md`](ENUNCIADO.md). O [`README.md`](../README.md) passou a ser a documentação da entrega, com as seções A) Análise Manual, B) Construção da Skill, C) Resultados (com o checklist preenchido para os 3 projetos) e D) Como Executar.
+- O `CLAUDE.md` da raiz foi restaurado. Continua no `.gitignore`.
+
 ## Próximo passo
 
-Fechamento:
-1. Conferir `diff -r` das 3 cópias da skill.
-2. README com Análise Manual, Construção da Skill, Resultados e Como Executar.
-3. Restaurar o `CLAUDE.md`.
-4. Push, com confirmação.
-5. Atualizar o repositório `mba`.
+1. `git push` do fork, com confirmação do usuário.
+2. Atualizar o repositório `mba` (`README.md` e `docs/contexto/decisoes.md`) com o status e o link do handoff.
 
 ## Checklist de entrega (enunciado)
 
 - [ ] Fork público de `mba-ia-refactor-projects-skill`
-- [ ] `.claude/skills/refactor-arch/` idêntica nos 3 projetos, com `SKILL.md` e as 5 áreas de conhecimento
+- [x] `.claude/skills/refactor-arch/` idêntica nos 3 projetos, com `SKILL.md` e as 5 áreas de conhecimento
 - [x] Catálogo com ≥ 8 anti-patterns (incluindo APIs deprecated): 15. Playbook com ≥ 8 transformações: 18.
 - [x] Código refatorado dos 3 projetos commitado
 - [x] `reports/audit-project-1.md`, `-2.md` e `-3.md` na raiz
 - [x] Nos 3 projetos: stack detectada, ≥ 5 findings, ≥ 1 CRITICAL ou HIGH, aplicação no ar e endpoints respondendo
-- [ ] README com Análise Manual, Construção da Skill, Resultados e Como Executar
+- [x] README com Análise Manual, Construção da Skill, Resultados e Como Executar
 - [ ] URL do fork enviada na área de entrega da plataforma
