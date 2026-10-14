@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Projetos 1 e 2 concluídos. Projeto 3: Fases 1–2 concluídas.** Relatório em [`reports/audit-project-3.md`](../reports/audit-project-3.md), aguardando revisão antes da Fase 3.
+**Os 3 projetos foram concluídos (Fases 1–3) e verificados por fora.** Próximo: fechamento (sincronizar a skill, escrever o README, restaurar o `CLAUDE.md` e fazer o push com confirmação).
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
 | 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
 | 5. Projeto 2 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log), [log 3](runs/project-2/phase-3.log), [diff](runs/project-2/diff.md), [diff admin ligado](runs/project-2/diff-admin-on.md) |
-| 6. Projeto 3 | Fases 1–2 feitas; Fase 3 aguarda revisão | [relatório](../reports/audit-project-3.md), [log 1–2](runs/project-3/phase-1-2.log) |
+| 6. Projeto 3 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-3.md), [log 1–2](runs/project-3/phase-1-2.log), [log 3](runs/project-3/phase-3.log), [diff](runs/project-3/diff.md), [diff admin ligado](runs/project-3/diff-admin-on.md) |
 | 7. Fechamento e README | Pendente | — |
 
 ## Linha de base
@@ -190,19 +190,41 @@ Em relação à análise manual:
 - O AP-10 lista todas as chamadas de `utcnow` e `Query.get`.
 - Não marcou AP-02 (`.like()` do ORM é parametrizado), AP-03 nem AP-06 (a lista de notificações pertence a uma instância nunca usada). Correto.
 
+## Projeto 3: resultado da Fase 3
+
+Rodou desacoplado e de uma vez só. A skill manteve `models/` e os blueprints, sem reescrever do zero. Acrescentou `config/`, `controllers/`, `services/`, `serializers/`, `middlewares/` e `utils/` (scrypt e um `utcnow` moderno), e um blueprint de categorias. Removeu o código morto (`notification_service.py`, que tinha a senha SMTP, e `helpers.py`) e tirou do `requirements.txt` as duas dependências sem uso. Ela deu ✗ em "Zero anti-patterns remaining", com a justificativa de que o token de login continua falso: autenticação real mudaria o contrato.
+
+**Verificação externa** (`seed.py`, `PORT=5001 python app.py`, `smoke.py` e `compare.py`):
+
+| Execução | Divergências | Arquivos |
+| --- | --- | --- |
+| Padrão (admin desligado) | 13, intencionais: 4 sem o campo `password` (detalhe, criar, atualizar, login) + 9 rotas de exclusão e relatório → 403 | [after](runs/project-3/after.json), [diff](runs/project-3/diff.md), [server](runs/project-3/after-server.log) |
+| `ENABLE_ADMIN_ROUTES=true` + `X-Admin-Token` | 4, só a remoção do `password`. Os valores conferidos com `--valores` (contagens, `completion_rate`, mensagens) batem com o original | [requests](runs/project-3/requests-admin-on.json), [after](runs/project-3/after-admin-on.json), [diff](runs/project-3/diff-admin-on.md) |
+
+Checagens manuais:
+- Relatório sem token → 401.
+- `POST /users` com `role: admin` sem token → 403.
+- Login com a senha do seed → 200, sem o hash.
+- Sobraram zero `utcnow()` antigos, `Query.get`, MD5, `except:` nu e segredos (os `print` que restam estão só no `seed.py`, que é CLI).
+
+A skill deixou o app original no ar na 5001 (o `kill` foi negado no headless), igual ao projeto 1. Encerrei à mão.
+
 ## Próximo passo
 
-1. Revisão do relatório do projeto 3 pelo usuário.
-2. Fase 3, desacoplada: `claude -p --continue "sim, prossiga com a Fase 3" ...` em `task-manager-api/`, com saída em `docs/runs/project-3/phase-3.log`.
-3. Verificação externa: `seed.py`, subir na 5001, `smoke.py` e `compare.py`. Conferir com `lsof` se ficou algum servidor no ar.
+Fechamento:
+1. Conferir `diff -r` das 3 cópias da skill.
+2. README com Análise Manual, Construção da Skill, Resultados e Como Executar.
+3. Restaurar o `CLAUDE.md`.
+4. Push, com confirmação.
+5. Atualizar o repositório `mba`.
 
 ## Checklist de entrega (enunciado)
 
 - [ ] Fork público de `mba-ia-refactor-projects-skill`
 - [ ] `.claude/skills/refactor-arch/` idêntica nos 3 projetos, com `SKILL.md` e as 5 áreas de conhecimento
 - [x] Catálogo com ≥ 8 anti-patterns (incluindo APIs deprecated): 15. Playbook com ≥ 8 transformações: 18.
-- [ ] Código refatorado dos 3 projetos commitado
-- [ ] `reports/audit-project-1.md` (feito), `-2.md` (feito) e `-3.md` (feito) na raiz
-- [ ] Nos 3 projetos: stack detectada, ≥ 5 findings, ≥ 1 CRITICAL ou HIGH, aplicação no ar e endpoints respondendo
+- [x] Código refatorado dos 3 projetos commitado
+- [x] `reports/audit-project-1.md`, `-2.md` e `-3.md` na raiz
+- [x] Nos 3 projetos: stack detectada, ≥ 5 findings, ≥ 1 CRITICAL ou HIGH, aplicação no ar e endpoints respondendo
 - [ ] README com Análise Manual, Construção da Skill, Resultados e Como Executar
 - [ ] URL do fork enviada na área de entrega da plataforma
