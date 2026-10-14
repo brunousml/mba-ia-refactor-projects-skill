@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Projetos 1 e 2 concluídos (Fases 1–3) e verificados por fora.** Próximo: projeto 3.
+**Projetos 1 e 2 concluídos. Projeto 3: Fases 1–2 concluídas.** Relatório em [`reports/audit-project-3.md`](../reports/audit-project-3.md), aguardando revisão antes da Fase 3.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
 | 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
 | 5. Projeto 2 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log), [log 3](runs/project-2/phase-3.log), [diff](runs/project-2/diff.md), [diff admin ligado](runs/project-2/diff-admin-on.md) |
-| 6. Projeto 3 | Pendente | — |
+| 6. Projeto 3 | Fases 1–2 feitas; Fase 3 aguarda revisão | [relatório](../reports/audit-project-3.md), [log 1–2](runs/project-3/phase-1-2.log) |
 | 7. Fechamento e README | Pendente | — |
 
 ## Linha de base
@@ -170,9 +170,31 @@ Mudanças intencionais de contrato listadas pela skill, fora do smoke:
 - Tipos inválidos → 400.
 - `DELETE` de id inexistente → 404.
 
+## Projeto 3: resultado das Fases 1–2
+
+Rodado desacoplado da sessão (`fork` + `setsid`), com a skill copiada sem alteração (`diff -r` vazio).
+
+| Critério | Resultado |
+| --- | --- |
+| Stack detectada | Python 3.13 + Flask 3.0.0 + Flask-SQLAlchemy 3.1.1 (e dependências sem uso: marshmallow, requests, python-dotenv) |
+| Domínio | Gerenciador de tarefas (usuários, categorias, relatórios) |
+| Arquitetura | Camadas parciais (`models/` existe; as rotas fazem consulta e regra; `services/` e `utils/` não são usados) |
+| Rotas inventariadas | 22, o mesmo total da linha de base, sem contar `/` e `/health`, que a skill também listou |
+| Findings | 14: CRITICAL 4, HIGH 3, MEDIUM 5, LOW 2 |
+| Linhas | Amostra conferida (`app.py:13`, `15`, `34`; `models/user.py:21`, `27-32`; `user_routes.py:52`, `71-72`, `119-122`, `140-142`, `209-210`; `notification_service.py:7-10`; `report_routes.py:163`, `196-197`; `task_routes.py:31`, `42`, `62-63`, `113`, `261`): todas exatas |
+| Pausa | Terminou em `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]`; `git status` mostrou só o relatório, o log e a cópia da skill |
+
+Em relação à análise manual:
+- Os 13 itens foram encontrados, inclusive o cadastro anônimo de `admin`, como CRITICAL (AP-15).
+- O hash vazado foi citado exatamente nas 4 rotas certas (`user_routes.py:33`, `85`, `129`, `209`).
+- O AP-10 lista todas as chamadas de `utcnow` e `Query.get`.
+- Não marcou AP-02 (`.like()` do ORM é parametrizado), AP-03 nem AP-06 (a lista de notificações pertence a uma instância nunca usada). Correto.
+
 ## Próximo passo
 
-Projeto 3 (`task-manager-api`): copiar a skill, rodar as Fases 1–2 headless **desacoplado da sessão**, conferir e parar para revisão do relatório.
+1. Revisão do relatório do projeto 3 pelo usuário.
+2. Fase 3, desacoplada: `claude -p --continue "sim, prossiga com a Fase 3" ...` em `task-manager-api/`, com saída em `docs/runs/project-3/phase-3.log`.
+3. Verificação externa: `seed.py`, subir na 5001, `smoke.py` e `compare.py`. Conferir com `lsof` se ficou algum servidor no ar.
 
 ## Checklist de entrega (enunciado)
 
@@ -180,7 +202,7 @@ Projeto 3 (`task-manager-api`): copiar a skill, rodar as Fases 1–2 headless **
 - [ ] `.claude/skills/refactor-arch/` idêntica nos 3 projetos, com `SKILL.md` e as 5 áreas de conhecimento
 - [x] Catálogo com ≥ 8 anti-patterns (incluindo APIs deprecated): 15. Playbook com ≥ 8 transformações: 18.
 - [ ] Código refatorado dos 3 projetos commitado
-- [ ] `reports/audit-project-1.md` (feito), `-2.md` (feito) e `-3.md` na raiz
+- [ ] `reports/audit-project-1.md` (feito), `-2.md` (feito) e `-3.md` (feito) na raiz
 - [ ] Nos 3 projetos: stack detectada, ≥ 5 findings, ≥ 1 CRITICAL ou HIGH, aplicação no ar e endpoints respondendo
 - [ ] README com Análise Manual, Construção da Skill, Resultados e Como Executar
 - [ ] URL do fork enviada na área de entrega da plataforma
