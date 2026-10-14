@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Projeto 1 concluído (Fases 1–3) e verificado por fora.** Próximo: projeto 2.
+**Projeto 1 concluído. Projeto 2: Fases 1–2 concluídas.** Relatório em [`reports/audit-project-2.md`](../reports/audit-project-2.md), aguardando revisão antes da Fase 3.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 3. Skill | v2 (pós-revisão) | [`code-smells-project/.claude/skills/refactor-arch/`](../code-smells-project/.claude/skills/refactor-arch/) |
 | 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
 | 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
-| 5. Projeto 2 | Pendente | — |
+| 5. Projeto 2 | Fases 1–2 feitas; Fase 3 aguarda revisão | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log) |
 | 6. Projeto 3 | Pendente | — |
 | 7. Fechamento e README | Pendente | — |
 
@@ -124,9 +124,31 @@ Observações:
 - A skill também atualizou o `README.md` do projeto (estrutura, configuração e rotas de admin).
 - O material de trabalho da skill ficou em um diretório temporário fora do repositório, como pede o `SKILL.md`.
 
+## Projeto 2: resultado das Fases 1–2
+
+Mesmo comando, em `ecommerce-api-legacy/`, com a skill copiada sem alteração (`diff -r` vazio).
+
+| Critério | Resultado |
+| --- | --- |
+| Stack detectada | JavaScript (Node 26.7) + Express 4.22.1, sqlite3 5.1.7 em memória |
+| Domínio | LMS com checkout (cursos, matrícula, pagamento, relatório financeiro) |
+| Arquitetura | Monolito (`AppManager.js` junta schema, seed, regras e rotas) |
+| Rotas inventariadas | 3 (`POST /api/checkout`, `GET /api/admin/financial-report`, `DELETE /api/users/:id`) |
+| Findings | 13: CRITICAL 4, HIGH 4, MEDIUM 3, LOW 2 |
+| Linhas | Amostra conferida (`utils.js:2-5`, `17-23`; `AppManager.js:18`, `45`, `68`, `92`, `104`, `106`, `131-136`): todas exatas |
+| Pausa | Terminou em `Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]`; `git status` mostrou só o relatório, o log e a cópia da skill |
+
+Em relação à análise manual:
+- Todos os itens das tabelas foram encontrados. A skill marcou AP-03 (god class) como CRITICAL, o que a análise manual também faz.
+- A skill encontrou ainda a senha em texto puro no seed (`AppManager.js:18`).
+- Ficou implícito: o checkout cria o usuário **antes** de validar o pagamento. O relatório cobre o fluxo pelo AP-05, mas não cita isso como problema à parte.
+- Não marcou AP-02 (todas as queries usam `?`) nem AP-10. Correto.
+
 ## Próximo passo
 
-Projeto 2 (`ecommerce-api-legacy`): copiar a skill, rodar as Fases 1–2 headless, conferir e parar para revisão do relatório.
+1. Revisão do relatório do projeto 2 pelo usuário.
+2. Fase 3: `cd ecommerce-api-legacy && claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, com saída em `docs/runs/project-2/phase-3.log`.
+3. Verificação externa: `npm start` (porta 3000), `smoke.py` e `compare.py`. Conferir com `lsof` se a skill deixou algum servidor no ar.
 
 ## Checklist de entrega (enunciado)
 
@@ -134,7 +156,7 @@ Projeto 2 (`ecommerce-api-legacy`): copiar a skill, rodar as Fases 1–2 headles
 - [ ] `.claude/skills/refactor-arch/` idêntica nos 3 projetos, com `SKILL.md` e as 5 áreas de conhecimento
 - [x] Catálogo com ≥ 8 anti-patterns (incluindo APIs deprecated): 15. Playbook com ≥ 8 transformações: 18.
 - [ ] Código refatorado dos 3 projetos commitado
-- [ ] `reports/audit-project-1.md` (feito), `-2.md` e `-3.md` na raiz
+- [ ] `reports/audit-project-1.md` (feito), `-2.md` (feito) e `-3.md` na raiz
 - [ ] Nos 3 projetos: stack detectada, ≥ 5 findings, ≥ 1 CRITICAL ou HIGH, aplicação no ar e endpoints respondendo
 - [ ] README com Análise Manual, Construção da Skill, Resultados e Como Executar
 - [ ] URL do fork enviada na área de entrega da plataforma
