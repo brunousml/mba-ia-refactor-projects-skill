@@ -1,0 +1,441 @@
+[
+  {
+    "id": "index",
+    "method": "GET",
+    "path": "/",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "health",
+    "method": "GET",
+    "path": "/health",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-listar",
+    "method": "GET",
+    "path": "/users",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-detalhe-ok",
+    "method": "GET",
+    "path": "/users/1",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-detalhe-404",
+    "method": "GET",
+    "path": "/users/999",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-criar-ok",
+    "method": "POST",
+    "path": "/users",
+    "body": {
+      "name": "Baseline",
+      "email": "baseline@email.com",
+      "password": "senha1"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-criar-400-email",
+    "method": "POST",
+    "path": "/users",
+    "body": {
+      "name": "X",
+      "email": "invalido",
+      "password": "senha1"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-criar-400-senha",
+    "method": "POST",
+    "path": "/users",
+    "body": {
+      "name": "X",
+      "email": "x@email.com",
+      "password": "ab"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-criar-409",
+    "method": "POST",
+    "path": "/users",
+    "body": {
+      "name": "Dup",
+      "email": "joao@email.com",
+      "password": "senha1"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-atualizar-ok",
+    "method": "PUT",
+    "path": "/users/4",
+    "body": {
+      "name": "Baseline Editado"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-atualizar-404",
+    "method": "PUT",
+    "path": "/users/999",
+    "body": {
+      "name": "X"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-tarefas-ok",
+    "method": "GET",
+    "path": "/users/1/tasks",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-tarefas-404",
+    "method": "GET",
+    "path": "/users/999/tasks",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "login-ok",
+    "method": "POST",
+    "path": "/login",
+    "body": {
+      "email": "joao@email.com",
+      "password": "1234"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "login-401",
+    "method": "POST",
+    "path": "/login",
+    "body": {
+      "email": "joao@email.com",
+      "password": "errada"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "login-400",
+    "method": "POST",
+    "path": "/login",
+    "body": {
+      "email": "joao@email.com"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-listar",
+    "method": "GET",
+    "path": "/tasks",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-detalhe-ok",
+    "method": "GET",
+    "path": "/tasks/1",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-detalhe-404",
+    "method": "GET",
+    "path": "/tasks/999",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-criar-ok",
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "title": "Task baseline",
+      "description": "teste",
+      "priority": 2,
+      "user_id": 2,
+      "category_id": 1,
+      "tags": [
+        "a",
+        "b"
+      ]
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-criar-400-titulo",
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "title": "ab"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-criar-400-status",
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "title": "Task X",
+      "status": "invalido"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-criar-400-prioridade",
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "title": "Task X",
+      "priority": 9
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-criar-404-usuario",
+    "method": "POST",
+    "path": "/tasks",
+    "body": {
+      "title": "Task X",
+      "user_id": 999
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-atualizar-ok",
+    "method": "PUT",
+    "path": "/tasks/1",
+    "body": {
+      "status": "in_progress",
+      "priority": 1
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-atualizar-404",
+    "method": "PUT",
+    "path": "/tasks/999",
+    "body": {
+      "status": "done"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-atualizar-400-status",
+    "method": "PUT",
+    "path": "/tasks/1",
+    "body": {
+      "status": "invalido"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-buscar-q",
+    "method": "GET",
+    "path": "/tasks/search?q=bug",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-buscar-filtros",
+    "method": "GET",
+    "path": "/tasks/search?status=pending&priority=1",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-stats",
+    "method": "GET",
+    "path": "/tasks/stats",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "relatorio-resumo",
+    "method": "GET",
+    "path": "/reports/summary",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "relatorio-usuario-ok",
+    "method": "GET",
+    "path": "/reports/user/1",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "relatorio-usuario-404",
+    "method": "GET",
+    "path": "/reports/user/999",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-listar",
+    "method": "GET",
+    "path": "/categories",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-criar-ok",
+    "method": "POST",
+    "path": "/categories",
+    "body": {
+      "name": "Baseline",
+      "description": "teste",
+      "color": "#123456"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-criar-400",
+    "method": "POST",
+    "path": "/categories",
+    "body": {
+      "description": "sem nome"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-atualizar-ok",
+    "method": "PUT",
+    "path": "/categories/5",
+    "body": {
+      "name": "Baseline Editada"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-atualizar-404",
+    "method": "PUT",
+    "path": "/categories/999",
+    "body": {
+      "name": "X"
+    },
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-deletar-ok",
+    "method": "DELETE",
+    "path": "/tasks/10",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "tasks-deletar-404",
+    "method": "DELETE",
+    "path": "/tasks/999",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-deletar-ok",
+    "method": "DELETE",
+    "path": "/categories/5",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "categorias-deletar-404",
+    "method": "DELETE",
+    "path": "/categories/999",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-deletar-ok",
+    "method": "DELETE",
+    "path": "/users/4",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  },
+  {
+    "id": "users-deletar-404",
+    "method": "DELETE",
+    "path": "/users/999",
+    "headers": {
+      "X-Admin-Token": "t0k"
+    }
+  }
+]

@@ -1,0 +1,61 @@
+```
+================================
+PHASE 3: REFACTORING COMPLETE
+================================
+## New Project Structure
+task-manager-api/
+├── app.py                  entry point: create_app() compõe config, CORS, db, blueprints e handler de erro
+├── database.py             instância do SQLAlchemy + commit/rollback
+├── seed.py                 mesmos dados e senhas, hash novo
+├── requirements.txt        sem marshmallow e requests (sem uso)
+├── .env.example
+├── config/
+│   ├── settings.py         ambiente/.env: SECRET_KEY, DATABASE_URI, HOST, PORT, DEBUG, CORS, flag admin
+│   └── rules.py            constantes de domínio (status, faixas, limites, roles, cores)
+├── models/                 task.py, user.py, category.py (entidade + consultas, GROUP BY/JOIN)
+├── services/               task_, user_, category_, report_service.py, errors.py, persistence.py, stats.py
+├── controllers/            task_, user_, category_, report_, system_controller.py, request_body.py
+├── routes/                 task_, user_, category_, report_, system_routes.py (só registro)
+├── serializers/            task_, user_, category_serializer.py (sem password)
+├── middlewares/            errors.py (handler central), admin.py (flag + X-Admin-Token)
+└── utils/                  passwords.py (scrypt/werkzeug), time.py (utcnow moderno)
+Removidos: services/notification_service.py, utils/helpers.py (código morto; o primeiro tinha a senha SMTP)
+
+## Validation
+  ✓ Application boots without errors
+  ✓ All endpoints respond correctly (49/66 iguais ao snapshot, 17 mudanças intencionais)
+  ✗ Zero anti-patterns remaining
+
+## MVC checklist
+  ✓ Configuração extraída para módulo de config (sem hardcoded)
+  ✓ Models abstraem o acesso a dados
+  ✓ Views/Routes só fazem roteamento
+  ✓ Controllers concentram o fluxo da aplicação
+  ✓ Error handling centralizado
+  ✓ Entry point claro (só compõe a aplicação)
+
+## Intentional changes
+- `password` (hash) sai de GET /users/<id>, POST /users, PUT /users/<id> e POST /login (T05).
+- Senhas com scrypt (werkzeug) no lugar de MD5. O seed foi refeito com as mesmas senhas (1234, abcd, pass), e os logins continuam funcionando (T04).
+- DELETE /tasks/<id>, /users/<id>, /categories/<id> e GET /reports/summary, /reports/user/<id> respondem 403 por padrão. Com ENABLE_ADMIN_ROUTES=true, exigem o X-Admin-Token (401 sem ele) e repetem o comportamento e os valores do original (T08).
+- POST /users com role ≠ user e PUT /users/<id> trocando o role respondem 403 sem o token de admin (T18).
+- Debug desligado por padrão (o 500 antes devolvia o Werkzeug Debugger em HTML). CORS `*` só em desenvolvimento. Em produção, exige CORS_ORIGINS (T18).
+- SECRET_KEY vem do ambiente: aleatória com warning em dev, obrigatória em produção (T01).
+- 500 → 400 com JSON: priority não inteira, `?priority=`/`?user_id=` não numéricos, PUT /categories com corpo null, corpo que não é objeto, campos de texto com tipo errado (T17).
+- Novas rejeições 400: tags que não são texto/lista de textos, cor fora de #RRGGBB, `active` não booleano. Antes eram aceitos e corrompiam dados ou davam 500 depois (T17).
+- O PUT /tasks com data inválida agora devolve a mesma mensagem do POST: "Formato de data inválido. Use YYYY-MM-DD" (T16).
+- Falhas não tratadas respondem `{"error": "Erro interno"}` em JSON e são logadas com stack trace. 404, 405 e 415 do Flask não mudaram (T10).
+
+## Anti-patterns remaining
+- AP-07 (HIGH), parcial: o login ainda devolve `fake-jwt-token-<id>`, que nenhuma rota verifica. Criar autenticação real mudaria o contrato de todas as rotas. As rotas perigosas ficaram atrás da flag, e a limitação está no README.
+================================
+```
+
+## Pontos de atenção
+
+- **Ficou um processo no ar na porta 5001**: PIDs `30544` e `31100`. É a aplicação original, que subi para o snapshot, e o `kill` não estava liberado nesta sessão. Como ela roda com o reloader do debug, já recarregou com o código novo. Para encerrar: `kill 30544 31100`. Nas validações usei um harness que encerra o próprio servidor, então a porta 5002 ficou livre.
+- **As credenciais antigas precisam ser rotacionadas** (`super-secret-key-123` e a senha SMTP `senha123`). Saíram do código, mas continuam no histórico do git.
+- **Nada foi commitado.** Os dois arquivos removidos (`notification_service.py` e `helpers.py`) já estão em stage por causa do `git rm`; o resto aparece como modificado ou novo.
+- O snapshot, o comparador e os resultados de cada grupo estão em `/var/folders/cd/gb5z0vcx6bbb5lfqjnw3klfr0000gn/T/tmp.ccgrjDoHhj/`. O banco ficou no estado inicial do seed novo.
+
+exit=0
