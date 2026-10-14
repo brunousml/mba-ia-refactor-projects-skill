@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Projeto 1 concluído. Projeto 2: Fases 1–2 concluídas.** Relatório em [`reports/audit-project-2.md`](../reports/audit-project-2.md), aguardando revisão antes da Fase 3.
+**Projetos 1 e 2 concluídos (Fases 1–3) e verificados por fora.** Próximo: projeto 3.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 3. Skill | v2 (pós-revisão) | [`code-smells-project/.claude/skills/refactor-arch/`](../code-smells-project/.claude/skills/refactor-arch/) |
 | 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
 | 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
-| 5. Projeto 2 | Fases 1–2 feitas; Fase 3 aguarda revisão | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log) |
+| 5. Projeto 2 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log), [log 3](runs/project-2/phase-3.log), [diff](runs/project-2/diff.md), [diff admin ligado](runs/project-2/diff-admin-on.md) |
 | 6. Projeto 3 | Pendente | — |
 | 7. Fechamento e README | Pendente | — |
 
@@ -144,11 +144,35 @@ Em relação à análise manual:
 - Ficou implícito: o checkout cria o usuário **antes** de validar o pagamento. O relatório cobre o fluxo pelo AP-05, mas não cita isso como problema à parte.
 - Não marcou AP-02 (todas as queries usam `?`) nem AP-10. Correto.
 
+## Projeto 2: resultado da Fase 3
+
+Estrutura nova em `src/`: `app.js` (composição), `config/`, `models/` (adaptador Promise sobre o driver de callback + um model por tabela), `services/`, `controllers/`, `routes/`, `middlewares/` (`asyncHandler`, `errorHandler`, `adminGuard`), `errors/`, `utils/`, além do `.env.example`. `AppManager.js` e `utils.js` foram removidos. A skill marcou ✓ em todo o checklist, inclusive "Zero anti-patterns remaining".
+
+**Execução interrompida duas vezes.** O `claude -p` rodava como job em background desta sessão e morreu junto com ela: na 1ª vez logo depois do snapshot, na 2ª no meio da refatoração. A 3ª execução rodou desacoplada (`fork` + `setsid`) e retomou a mesma sessão com `--continue`, partindo do código parcial e do snapshot. O [log da Fase 3](runs/project-2/phase-3.log) registra só essa última execução. Para o projeto 3, rodar desacoplado desde o início.
+
+**Verificação externa** (`node src/app.js`, porta 3000, banco em memória, `smoke.py` e `compare.py`):
+
+| Execução | Divergências | Arquivos |
+| --- | --- | --- |
+| Padrão (admin desligado) | 2, intencionais: `relatorio-financeiro` e `usuario-deletar` 200 → 403 | [after](runs/project-2/after.json), [diff](runs/project-2/diff.md), [server](runs/project-2/after-server.log) |
+| `ENABLE_ADMIN_ROUTES=true` + `X-Admin-Token` | 0; o relatório saiu com os **mesmos valores** do original | [requests](runs/project-2/requests-admin-on.json), [after](runs/project-2/after-admin-on.json), [diff](runs/project-2/diff-admin-on.md) |
+
+Também conferido:
+- Admin ligado sem token → 401.
+- O log do servidor mostra só os 4 últimos dígitos do cartão e não mostra a chave do gateway.
+- Não sobrou nenhuma credencial nem o default `"123456"` em `src/`.
+
+`scripts/smoke.py` ganhou o campo opcional `headers` por chamada, para testar com o token.
+
+Mudanças intencionais de contrato listadas pela skill, fora do smoke:
+- Checkout com e-mail existente e senha errada → 401.
+- Usuário novo sem `pwd` → 400.
+- Tipos inválidos → 400.
+- `DELETE` de id inexistente → 404.
+
 ## Próximo passo
 
-1. Revisão do relatório do projeto 2 pelo usuário.
-2. Fase 3: `cd ecommerce-api-legacy && claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, com saída em `docs/runs/project-2/phase-3.log`.
-3. Verificação externa: `npm start` (porta 3000), `smoke.py` e `compare.py`. Conferir com `lsof` se a skill deixou algum servidor no ar.
+Projeto 3 (`task-manager-api`): copiar a skill, rodar as Fases 1–2 headless **desacoplado da sessão**, conferir e parar para revisão do relatório.
 
 ## Checklist de entrega (enunciado)
 

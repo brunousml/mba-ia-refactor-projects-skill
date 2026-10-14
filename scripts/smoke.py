@@ -14,6 +14,7 @@ def chamar(base_url, req):
     corpo = req.get("body")
     dados = json.dumps(corpo).encode() if corpo is not None else None
     cabecalhos = {"Content-Type": "application/json"} if dados is not None else {}
+    cabecalhos.update(req.get("headers", {}))
     pedido = urllib.request.Request(
         base_url + req["path"], data=dados, method=req["method"], headers=cabecalhos
     )
