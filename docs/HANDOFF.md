@@ -4,7 +4,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Projeto 1, Fases 1–2 concluídas.** Relatório em [`reports/audit-project-1.md`](../reports/audit-project-1.md). Aguardando revisão antes da Fase 3.
+**Projeto 1 concluído (Fases 1–3) e verificado por fora.** Próximo: projeto 2.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 | 2. Análise manual | Feito e revisado | [`docs/analise-manual.md`](analise-manual.md) |
 | 3. Skill | v2 (pós-revisão) | [`code-smells-project/.claude/skills/refactor-arch/`](../code-smells-project/.claude/skills/refactor-arch/) |
 | 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
-| 4. Projeto 1 (Fases 1–2 headless) | Feito; Fase 3 aguarda revisão | [relatório](../reports/audit-project-1.md), [log](runs/project-1/phase-1-2.log) |
+| 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
 | 5. Projeto 2 | Pendente | — |
 | 6. Projeto 3 | Pendente | — |
 | 7. Fechamento e README | Pendente | — |
@@ -99,11 +99,34 @@ Divergências em relação à análise manual (decisões da skill, não erros):
 - Não marcou AP-03 (god module), porque nenhum arquivo junta as três responsabilidades. Pelo catálogo, esse caso vira AP-05, o mesmo critério da análise manual.
 - Não encontrou API deprecated no projeto 1. Correto: o projeto 1 não usa nenhuma.
 
+## Projeto 1: resultado da Fase 3
+
+Comando: `claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, em `code-smells-project/`. Saída em [`runs/project-1/phase-3.log`](runs/project-1/phase-3.log).
+
+Estrutura nova: `app.py` (composição) + `config/`, `routes/`, `controllers/`, `services/`, `models/`, `serializers/`, `middlewares/`, `utils/`, `.env.example`. Os 4 arquivos originais saíram. O checklist MVC da skill deu ✓ em todos os itens; "Zero anti-patterns remaining" ficou ✗ e foi justificado (AP-07: o projeto não tem autenticação real, e criar uma quebraria o contrato; CORS `*` configurável).
+
+**Verificação externa** (`rm -f loja.db`, `PORT=5001 python app.py`, `smoke.py` e `compare.py`): 35 chamadas, 7 divergências, todas intencionais ([diff](runs/project-1/diff.md)).
+
+| Chamada | Antes → depois | Motivo |
+| --- | --- | --- |
+| `health` | formato | saem `secret_key`, `db_path` e `debug` (nenhum campo novo) |
+| `usuarios-listar`, `usuarios-detalhe-ok` | formato | sai `senha` (nenhum campo novo) |
+| `produtos-criar-400-sem-body` | 500 → 400 | validação na borda |
+| `admin-query-select`, `admin-query-400`, `admin-reset-db` | 200/400 → 403 | admin desligado por padrão |
+
+Checagens manuais extras:
+- Com `ENABLE_ADMIN_ROUTES=true ADMIN_TOKEN=…`: `/admin/query` sem token → 401, com token → 200 (`COUNT(*) = 10`); `/admin/reset-db` com token → 200.
+- `POST /login` com `admin@loja.com`/`admin123` → 200, com senha agora em scrypt.
+- Nenhum SQL concatenado com valor do cliente sobrou (os dois f-strings restantes montam só nomes fixos de tabela e marcadores `?`). Nenhum `print`. Log do servidor sem erro.
+
+Observações:
+- A skill deixou o app original rodando na porta 5050 (o `kill` foi negado no modo headless). Encerrei os processos à mão. Nos próximos projetos, conferir `lsof` depois da Fase 3.
+- A skill também atualizou o `README.md` do projeto (estrutura, configuração e rotas de admin).
+- O material de trabalho da skill ficou em um diretório temporário fora do repositório, como pede o `SKILL.md`.
+
 ## Próximo passo
 
-1. Revisão do relatório pelo usuário.
-2. Fase 3: `cd code-smells-project && claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"`, com saída em `docs/runs/project-1/phase-3.log`.
-3. Verificação externa: `rm -f loja.db`, subir, rodar `smoke.py` e `compare.py` contra a linha de base.
+Projeto 2 (`ecommerce-api-legacy`): copiar a skill, rodar as Fases 1–2 headless, conferir e parar para revisão do relatório.
 
 ## Checklist de entrega (enunciado)
 
@@ -111,7 +134,7 @@ Divergências em relação à análise manual (decisões da skill, não erros):
 - [ ] `.claude/skills/refactor-arch/` idêntica nos 3 projetos, com `SKILL.md` e as 5 áreas de conhecimento
 - [x] Catálogo com ≥ 8 anti-patterns (incluindo APIs deprecated): 15. Playbook com ≥ 8 transformações: 18.
 - [ ] Código refatorado dos 3 projetos commitado
-- [ ] `reports/audit-project-1.md`, `-2.md` e `-3.md` na raiz
+- [ ] `reports/audit-project-1.md` (feito), `-2.md` e `-3.md` na raiz
 - [ ] Nos 3 projetos: stack detectada, ≥ 5 findings, ≥ 1 CRITICAL ou HIGH, aplicação no ar e endpoints respondendo
 - [ ] README com Análise Manual, Construção da Skill, Resultados e Como Executar
 - [ ] URL do fork enviada na área de entrega da plataforma

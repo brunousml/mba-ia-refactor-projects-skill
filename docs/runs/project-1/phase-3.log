@@ -1,0 +1,70 @@
+A Fase 3 terminou. A aplicação sobe sem erro e todas as divergências em relação ao snapshot são intencionais. Ainda restam anti-patterns, e por isso a linha "Zero anti-patterns remaining" ficou ✗. Nada foi commitado.
+
+```
+================================
+PHASE 3: REFACTORING COMPLETE
+================================
+## New Project Structure
+code-smells-project/
+├── app.py                  entry point: config → Banco → middlewares → rotas → run
+├── .env.example
+├── README.md
+├── requirements.txt        (sem dependências novas)
+├── config/       settings.py (env), regras.py (constantes de domínio)
+├── routes/       produto, usuario, pedido, relatorio, sistema, admin (_routes.py) + __init__ (registrar_rotas)
+├── controllers/  produto, usuario, pedido, relatorio, sistema, admin (_controller.py)
+├── services/     produto, usuario, pedido, relatorio, sistema, admin (_service.py) + erros.py (ErroDeNegocio)
+├── models/       database.py (Banco, schema, seed), produto, usuario, pedido, admin (_model.py)
+├── serializers/  produto, usuario, pedido (_serializer.py)
+├── middlewares/  conexao.py (conexão por requisição), erros.py (handler central), admin.py (guard)
+└── utils/        senha.py (scrypt), tipos.py
+
+## Validation
+  ✓ Application boots without errors
+  ✓ All endpoints respond correctly (36/56 iguais ao snapshot, 20 mudanças intencionais; com a flag de admin ligada: 40/56, 16 intencionais)
+  ✗ Zero anti-patterns remaining
+
+## MVC checklist
+  ✓ Configuração extraída para módulo de config (sem hardcoded)
+  ✓ Models abstraem o acesso a dados
+  ✓ Views/Routes só fazem roteamento
+  ✓ Controllers concentram o fluxo da aplicação
+  ✓ Error handling centralizado
+  ✓ Entry point claro (só compõe a aplicação)
+
+## Intentional changes
+- GET /health: saem `secret_key`, `db_path` e `debug`; `ambiente` vem de APP_ENV ("development" em vez de "producao" fixo).
+- GET /usuarios e GET /usuarios/<id>: o campo `senha` saiu da resposta.
+- Senhas gravadas com hash scrypt. O seed foi refeito com as mesmas senhas de exemplo (admin123, 123456, senha123), e um loja.db antigo é convertido no boot.
+- POST /login: a injeção (`admin@loja.com' --`) passou de 200 para 401.
+- GET /produtos/busca: um termo com injeção SQL agora é tratado como texto (lista vazia, antes vinham todos os produtos).
+- POST /produtos com apóstrofo no nome: passou de 500 (erro de SQL) para 201.
+- POST /admin/reset-db e POST /admin/query: 403 por padrão; com ENABLE_ADMIN_ROUTES=true exigem X-Admin-Token (sem ele, 401; com ele, o comportamento original).
+- Corpo ausente ou que não é JSON em POST /produtos, /usuarios, /login e /pedidos: passou de 500 (415 vazado) para 400 "Dados inválidos". Em PUT /pedidos/<id>/status, passou para 400 "Status inválido".
+- Tipo inválido passou de 500 para 400: preco/estoque não numéricos, preco_min/preco_max não numéricos, usuario_id não inteiro.
+- POST /pedidos com quantidade ≤ 0 ou produto_id não inteiro: passou de 201 para 400 (antes gerava total negativo e aumentava o estoque).
+- PUT /pedidos/<id>/status com pedido inexistente: passou de 200 para 404.
+- PUT /produtos/<id>: agora aplica a mesma validação da criação (tamanho do nome, categoria e tipos), que antes faltava.
+- Erros 500 não tratados: o corpo passou a ser {"erro": "Erro interno"}, com o detalhe só no log (antes vazava str(e)).
+- Debug desligado por padrão (DEBUG=false); HOST, PORT, CORS e banco são configuráveis por ambiente (porta padrão 5000 mantida).
+- Logs: `print` virou `logging`, sem e-mail do usuário; as notificações simuladas viraram log informativo.
+
+## Anti-patterns remaining
+- AP-07 (CRITICAL): GET /usuarios, GET /usuarios/<id> e GET /relatorios/vendas continuam públicos. O projeto não tem autenticação real, e exigir identidade quebraria o contrato de todos os clientes. Mitigação: a senha saiu da resposta.
+- AP-07 (HIGH): as rotas de escrita (produtos e status de pedido) não exigem identidade, e o /login não emite token. Exige desenhar a autenticação, fora do escopo de "preservar contrato".
+- AP-15 (parcial): o CORS continua com "*" por padrão para não quebrar clientes de navegador. Agora é configurável por CORS_ORIGINS, e a API não usa cookies nem credenciais.
+- Observação (fora do catálogo): cancelar um pedido ainda não devolve o estoque, como no original. Mudar isso alteraria regra de negócio, então ficou só registrado.
+================================
+```
+
+## O que você precisa saber
+
+- **App original ainda rodando na porta 5050 (PIDs 18141 e 18146).** Não tive permissão para encerrá-los: `kill` foi negado. Pode encerrar com `kill 18141 18146`. Por isso, toda a validação rodou nas portas 5051–5054.
+- **O `loja.db` sumiu entre a Fase 1 e a Fase 3,** então não havia o que guardar de backup. O snapshot e a validação começaram de um banco recém-criado pelo seed, no mesmo estado inicial. O `loja.db` que existe agora no projeto foi recriado pelo app antigo e tem senhas em texto puro; o app novo converte essas senhas para hash no primeiro boot.
+- **Ordem dos grupos:** criei `config/regras.py` já no Grupo 3, porque a validação unificada (T16) precisava de uma fonte única de categorias e status. O resto do T12 entrou no Grupo 4.
+- **Também validado:**
+  - com `APP_ENV=production` e sem `SECRET_KEY`, o boot é recusado;
+  - um banco legado com senha em texto é migrado e o login continua dando 200/401;
+  - o `pyflakes` passa limpo.
+- **Material de trabalho:** está em `/tmp/refactor-p1.JioT/`. Inclui `before.json`, `after-g*.json`, os scripts de snapshot e comparação e os módulos originais.
+exit=0

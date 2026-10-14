@@ -1,0 +1,543 @@
+[
+  {
+    "id": "index",
+    "status": 200,
+    "corpo": {
+      "endpoints": {
+        "health": "/health",
+        "login": "/login",
+        "pedidos": "/pedidos",
+        "produtos": "/produtos",
+        "relatorios": "/relatorios/vendas",
+        "usuarios": "/usuarios"
+      },
+      "mensagem": "Bem-vindo à API da Loja",
+      "versao": "1.0.0"
+    }
+  },
+  {
+    "id": "health",
+    "status": 200,
+    "corpo": {
+      "ambiente": "development",
+      "counts": {
+        "pedidos": 0,
+        "produtos": 10,
+        "usuarios": 3
+      },
+      "database": "connected",
+      "status": "ok",
+      "versao": "1.0.0"
+    }
+  },
+  {
+    "id": "produtos-listar",
+    "status": 200,
+    "corpo": {
+      "dados": [
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Notebook potente para jogos",
+          "estoque": 10,
+          "id": 1,
+          "nome": "Notebook Gamer",
+          "preco": 5999.99
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Mouse sem fio ergonômico",
+          "estoque": 50,
+          "id": 2,
+          "nome": "Mouse Wireless",
+          "preco": 89.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Teclado mecânico RGB",
+          "estoque": 30,
+          "id": 3,
+          "nome": "Teclado Mecânico",
+          "preco": 299.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Monitor 27 polegadas 144hz",
+          "estoque": 15,
+          "id": 4,
+          "nome": "Monitor 27''",
+          "preco": 1899.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Headset com microfone",
+          "estoque": 25,
+          "id": 5,
+          "nome": "Headset Gamer",
+          "preco": 199.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "moveis",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Cadeira ergonômica",
+          "estoque": 8,
+          "id": 6,
+          "nome": "Cadeira Gamer",
+          "preco": 1299.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Webcam 1080p",
+          "estoque": 20,
+          "id": 7,
+          "nome": "Webcam HD",
+          "preco": 249.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Hub USB 3.0 7 portas",
+          "estoque": 40,
+          "id": 8,
+          "nome": "Hub USB",
+          "preco": 79.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "SSD NVMe 1TB",
+          "estoque": 35,
+          "id": 9,
+          "nome": "SSD 1TB",
+          "preco": 449.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "vestuario",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Camiseta estampa código",
+          "estoque": 100,
+          "id": 10,
+          "nome": "Camiseta Dev",
+          "preco": 59.9
+        }
+      ],
+      "sucesso": true
+    }
+  },
+  {
+    "id": "produtos-buscar-q",
+    "status": 200,
+    "corpo": {
+      "dados": [
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Mouse sem fio ergonômico",
+          "estoque": 50,
+          "id": 2,
+          "nome": "Mouse Wireless",
+          "preco": 89.9
+        }
+      ],
+      "sucesso": true,
+      "total": 1
+    }
+  },
+  {
+    "id": "produtos-buscar-categoria-preco",
+    "status": 200,
+    "corpo": {
+      "dados": [
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Teclado mecânico RGB",
+          "estoque": 30,
+          "id": 3,
+          "nome": "Teclado Mecânico",
+          "preco": 299.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Headset com microfone",
+          "estoque": 25,
+          "id": 5,
+          "nome": "Headset Gamer",
+          "preco": 199.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "Webcam 1080p",
+          "estoque": 20,
+          "id": 7,
+          "nome": "Webcam HD",
+          "preco": 249.9
+        },
+        {
+          "ativo": 1,
+          "categoria": "informatica",
+          "criado_em": "2026-10-14 19:10:37",
+          "descricao": "SSD NVMe 1TB",
+          "estoque": 35,
+          "id": 9,
+          "nome": "SSD 1TB",
+          "preco": 449.9
+        }
+      ],
+      "sucesso": true,
+      "total": 4
+    }
+  },
+  {
+    "id": "produtos-detalhe-ok",
+    "status": 200,
+    "corpo": {
+      "dados": {
+        "ativo": 1,
+        "categoria": "informatica",
+        "criado_em": "2026-10-14 19:10:37",
+        "descricao": "Notebook potente para jogos",
+        "estoque": 10,
+        "id": 1,
+        "nome": "Notebook Gamer",
+        "preco": 5999.99
+      },
+      "sucesso": true
+    }
+  },
+  {
+    "id": "produtos-detalhe-404",
+    "status": 404,
+    "corpo": {
+      "erro": "Produto não encontrado",
+      "sucesso": false
+    }
+  },
+  {
+    "id": "produtos-criar-ok",
+    "status": 201,
+    "corpo": {
+      "dados": {
+        "id": 11
+      },
+      "mensagem": "Produto criado",
+      "sucesso": true
+    }
+  },
+  {
+    "id": "produtos-criar-400-nome-curto",
+    "status": 400,
+    "corpo": {
+      "erro": "Nome muito curto"
+    }
+  },
+  {
+    "id": "produtos-criar-400-categoria",
+    "status": 400,
+    "corpo": {
+      "erro": "Categoria inválida. Válidas: ['informatica', 'moveis', 'vestuario', 'geral', 'eletronicos', 'livros']"
+    }
+  },
+  {
+    "id": "produtos-criar-400-sem-body",
+    "status": 400,
+    "corpo": {
+      "erro": "Dados inválidos"
+    }
+  },
+  {
+    "id": "produtos-atualizar-ok",
+    "status": 200,
+    "corpo": {
+      "mensagem": "Produto atualizado",
+      "sucesso": true
+    }
+  },
+  {
+    "id": "produtos-atualizar-404",
+    "status": 404,
+    "corpo": {
+      "erro": "Produto não encontrado"
+    }
+  },
+  {
+    "id": "produtos-atualizar-400-preco",
+    "status": 400,
+    "corpo": {
+      "erro": "Preço não pode ser negativo"
+    }
+  },
+  {
+    "id": "usuarios-listar",
+    "status": 200,
+    "corpo": {
+      "dados": [
+        {
+          "criado_em": "2026-10-14 19:10:38",
+          "email": "admin@loja.com",
+          "id": 1,
+          "nome": "Admin",
+          "tipo": "admin"
+        },
+        {
+          "criado_em": "2026-10-14 19:10:38",
+          "email": "joao@email.com",
+          "id": 2,
+          "nome": "João Silva",
+          "tipo": "cliente"
+        },
+        {
+          "criado_em": "2026-10-14 19:10:38",
+          "email": "maria@email.com",
+          "id": 3,
+          "nome": "Maria Santos",
+          "tipo": "cliente"
+        }
+      ],
+      "sucesso": true
+    }
+  },
+  {
+    "id": "usuarios-detalhe-ok",
+    "status": 200,
+    "corpo": {
+      "dados": {
+        "criado_em": "2026-10-14 19:10:38",
+        "email": "admin@loja.com",
+        "id": 1,
+        "nome": "Admin",
+        "tipo": "admin"
+      },
+      "sucesso": true
+    }
+  },
+  {
+    "id": "usuarios-detalhe-404",
+    "status": 404,
+    "corpo": {
+      "erro": "Usuário não encontrado"
+    }
+  },
+  {
+    "id": "usuarios-criar-ok",
+    "status": 201,
+    "corpo": {
+      "dados": {
+        "id": 4
+      },
+      "sucesso": true
+    }
+  },
+  {
+    "id": "usuarios-criar-400",
+    "status": 400,
+    "corpo": {
+      "erro": "Nome, email e senha são obrigatórios"
+    }
+  },
+  {
+    "id": "login-ok",
+    "status": 200,
+    "corpo": {
+      "dados": {
+        "email": "joao@email.com",
+        "id": 2,
+        "nome": "João Silva",
+        "tipo": "cliente"
+      },
+      "mensagem": "Login OK",
+      "sucesso": true
+    }
+  },
+  {
+    "id": "login-401",
+    "status": 401,
+    "corpo": {
+      "erro": "Email ou senha inválidos",
+      "sucesso": false
+    }
+  },
+  {
+    "id": "login-400",
+    "status": 400,
+    "corpo": {
+      "erro": "Email e senha são obrigatórios"
+    }
+  },
+  {
+    "id": "pedidos-criar-ok",
+    "status": 201,
+    "corpo": {
+      "dados": {
+        "pedido_id": 1,
+        "total": 479.7
+      },
+      "mensagem": "Pedido criado com sucesso",
+      "sucesso": true
+    }
+  },
+  {
+    "id": "pedidos-criar-400-sem-itens",
+    "status": 400,
+    "corpo": {
+      "erro": "Pedido deve ter pelo menos 1 item"
+    }
+  },
+  {
+    "id": "pedidos-criar-400-estoque",
+    "status": 400,
+    "corpo": {
+      "erro": "Estoque insuficiente para Notebook Gamer",
+      "sucesso": false
+    }
+  },
+  {
+    "id": "pedidos-listar",
+    "status": 200,
+    "corpo": {
+      "dados": [
+        {
+          "criado_em": "2026-10-14 19:10:42",
+          "id": 1,
+          "itens": [
+            {
+              "preco_unitario": 89.9,
+              "produto_id": 2,
+              "produto_nome": "Mouse Wireless",
+              "quantidade": 2
+            },
+            {
+              "preco_unitario": 299.9,
+              "produto_id": 3,
+              "produto_nome": "Teclado Mecânico",
+              "quantidade": 1
+            }
+          ],
+          "status": "pendente",
+          "total": 479.7,
+          "usuario_id": 2
+        }
+      ],
+      "sucesso": true
+    }
+  },
+  {
+    "id": "pedidos-usuario",
+    "status": 200,
+    "corpo": {
+      "dados": [
+        {
+          "criado_em": "2026-10-14 19:10:42",
+          "id": 1,
+          "itens": [
+            {
+              "preco_unitario": 89.9,
+              "produto_id": 2,
+              "produto_nome": "Mouse Wireless",
+              "quantidade": 2
+            },
+            {
+              "preco_unitario": 299.9,
+              "produto_id": 3,
+              "produto_nome": "Teclado Mecânico",
+              "quantidade": 1
+            }
+          ],
+          "status": "pendente",
+          "total": 479.7,
+          "usuario_id": 2
+        }
+      ],
+      "sucesso": true
+    }
+  },
+  {
+    "id": "pedidos-status-ok",
+    "status": 200,
+    "corpo": {
+      "mensagem": "Status atualizado",
+      "sucesso": true
+    }
+  },
+  {
+    "id": "pedidos-status-400",
+    "status": 400,
+    "corpo": {
+      "erro": "Status inválido"
+    }
+  },
+  {
+    "id": "relatorio-vendas",
+    "status": 200,
+    "corpo": {
+      "dados": {
+        "desconto_aplicavel": 0,
+        "faturamento_bruto": 479.7,
+        "faturamento_liquido": 479.7,
+        "pedidos_aprovados": 1,
+        "pedidos_cancelados": 0,
+        "pedidos_pendentes": 0,
+        "ticket_medio": 479.7,
+        "total_pedidos": 1
+      },
+      "sucesso": true
+    }
+  },
+  {
+    "id": "produtos-deletar-ok",
+    "status": 200,
+    "corpo": {
+      "mensagem": "Produto deletado",
+      "sucesso": true
+    }
+  },
+  {
+    "id": "produtos-deletar-404",
+    "status": 404,
+    "corpo": {
+      "erro": "Produto não encontrado"
+    }
+  },
+  {
+    "id": "admin-query-select",
+    "status": 403,
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
+  },
+  {
+    "id": "admin-query-400",
+    "status": 403,
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
+  },
+  {
+    "id": "admin-reset-db",
+    "status": 403,
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
+  }
+]
