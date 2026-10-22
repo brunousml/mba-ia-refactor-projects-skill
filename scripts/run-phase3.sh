@@ -4,5 +4,5 @@
 set -u
 cd "$1"
 claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports --add-dir ../docs \
-  --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash Agent" > "$2/phase-3.log" 2>&1
+  --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash Agent Skill" > "$2/phase-3.log" 2>&1
 echo "exit=$?" >> "$2/phase-3.log"

@@ -1,7 +1,7 @@
 ---
 name: validate-refactor
 description: Valida, sem alterar código, se a refatoração tem testes escritos antes da mudança e todos verdes, da Fase 3 da refactor-arch fechou todos os findings CRITICAL e HIGH do relatório de auditoria, se toda rota sem autenticação passou por um guard do T08 e se as únicas divergências do snapshot são as intencionais. Use ao final da Fase 3, antes do box de saída, ou quando o usuário pedir para validar, conferir ou checar pendências de uma refatoração.
-argument-hint: "[caminho do relatório de auditoria]"
+argument-hint: "[caminho do relatório de auditoria] [diretório de trabalho da Fase 3]"
 allowed-tools: Read Grep Glob Bash
 ---
 
@@ -13,8 +13,8 @@ Referências (da refactor-arch): `../refactor-arch/references/anti-patterns-cata
 
 ## Entradas
 
-- Relatório de auditoria: `$ARGUMENTS`; se vazio, `reports/audit-report.md`.
-- Snapshot da 3.1 e chamadas gravadas no diretório de trabalho da Fase 3, se existirem.
+- `$ARGUMENTS`: primeiro o relatório de auditoria (se vazio, `reports/audit-report.md`), depois o diretório de trabalho da Fase 3.
+- No diretório de trabalho: o snapshot da 3.1, `suite-original.txt` e `suite-grupo-1.txt` a `suite-grupo-4.txt`. Sem o diretório, C3 e C4 ficam ✗.
 - Lista de "Intentional changes" que a refactor-arch montou nesta execução.
 
 ## Checagens
@@ -22,7 +22,7 @@ Referências (da refactor-arch): `../refactor-arch/references/anti-patterns-cata
 Para cada uma, registre ✓ ou ✗ e, quando ✗, `arquivo:linha` e o finding.
 
 ### C1. Findings CRITICAL e HIGH
-Para cada finding CRITICAL ou HIGH do relatório, procure no código novo os **sinais** do anti-pattern no catálogo (não só nos arquivos citados no relatório; o código pode ter mudado de lugar). Pendente se ao menos um sinal continua presente sem a transformação indicada.
+Para cada finding CRITICAL ou HIGH do relatório, procure no código novo os **sinais** do anti-pattern no catálogo (não só nos arquivos citados no relatório; o código pode ter mudado de lugar). Pendente se ao menos um sinal continua presente sem a transformação indicada. Depois, percorra o catálogo inteiro contra o código novo: um sinal CRITICAL ou HIGH que o relatório não registrou também é pendência (o relatório pode ter deixado passar).
 
 ### C2. Rotas sem autenticação (AP-07)
 Liste todas as rotas registradas (método, caminho, `arquivo:linha`). Classifique cada uma:
@@ -42,7 +42,8 @@ Compare status e estrutura do corpo (chaves e tipos), ignorando ids e timestamps
 
 ### C4. Testes (TDD)
 - Existe suíte em `tests/` cobrindo todas as rotas do inventário (caracterização) e cada correção que muda o contrato (comportamento novo).
-- A Fase 3 registrou a execução da suíte no código original **antes** da refatoração (caracterização verde, comportamento novo vermelho).
+- `suite-original.txt` existe e mostra caracterização verde e comportamento novo vermelho no código original.
+- `suite-grupo-1.txt` a `suite-grupo-4.txt` existem, e nenhum deles tem teste de caracterização vermelho (um grupo não pode começar com caracterização vermelha). Faltou algum arquivo → ✗.
 - Rode a suíte agora: todos verdes. Pendente: rota sem teste, correção sem teste, teste vermelho, teste apagado ou afrouxado (`skip`, assert removido) sem registro em "Intentional changes".
 
 ### C5. Box de saída
@@ -67,4 +68,4 @@ C5 Box coerente                ✓|✗
 ================================
 ```
 
-`VALIDATION PASSED` só com C1–C5 em ✓. Qualquer pendência CRITICAL ou HIGH resulta em `VALIDATION FAILED`.
+`VALIDATION PASSED` só com C1–C5 em ✓. Qualquer ✗, inclusive C3 ou C4 sem evidência, resulta em `VALIDATION FAILED`.

@@ -30,7 +30,7 @@ Se o entry point original sobe o servidor ao ser importado (`app.listen` no topo
 - ignore ids e timestamps; compare valores estáveis.
 
 **Comportamento novo** (vermelho no original, verde depois), um por correção do relatório que muda o contrato:
-- rota guardada responde 403 com a flag desligada e 401 sem token (T08);
+- rota guardada responde 403 com a flag desligada, 401 sem token e 401 com token errado (T08). Cubra os três casos em pelo menos uma rota de cada flag usada;
 - campo sensível ausente da resposta (T05);
 - senha armazenada não é o texto puro (T04);
 - entrada inválida responde 400, não 500 (T17);

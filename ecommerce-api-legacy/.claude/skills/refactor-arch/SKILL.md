@@ -2,7 +2,7 @@
 name: refactor-arch
 description: Audita e refatora um projeto de backend para a arquitetura MVC em três fases (análise da stack, auditoria com confirmação, refatoração com validação). Use quando o usuário pedir para auditar um projeto, revisar a arquitetura, achar anti-patterns ou code smells, refatorar para MVC ou validar um projeto legado. Funciona em qualquer linguagem ou framework de backend.
 argument-hint: "[caminho do relatório]"
-allowed-tools: Read Grep Glob Write Edit Bash Agent
+allowed-tools: Read Grep Glob Write Edit Bash Agent Skill
 ---
 
 # refactor-arch
@@ -78,11 +78,11 @@ Só comece com confirmação explícita ("sim", "y", "prossiga"). Qualquer outra
 Os testes são a garantia de que a refatoração foi feita certo. Escreva-os **antes** de mudar qualquer linha do código de produção. Siga `references/testing-guidelines.md`.
 
 1. Use o framework de teste padrão da stack (veja `testing-guidelines.md`). Os testes ficam em `tests/` na raiz do projeto.
-2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Sem a ferramenta Agent, escreva você mesmo, domínio por domínio.
+2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Declare no chat quantos subagentes usou e para quais domínios. Só escreva os testes você mesmo se a ferramenta Agent não estiver disponível nesta sessão, e diga isso no chat.
 3. Escreva dois tipos de teste:
    - **caracterização** (verdes no original): todas as rotas pela interface HTTP (cliente de teste do framework), com caso válido, de erro e de não encontrado, e as regras de negócio observáveis (cálculos, descontos, estoque, contagens). Esses testes só usam a interface HTTP e o banco, para continuarem válidos depois que o código mudar de lugar.
    - **comportamento novo** (vermelhos no original): um teste por correção de segurança ou validação que muda o contrato (403 com a flag desligada, 401 sem token, campo sensível removido, 400 no lugar de 500, senha com hash). São a especificação da Fase 3.
-4. Rode a suíte no código original. Toda caracterização precisa passar; todo teste de comportamento novo precisa falhar pelo motivo esperado. Grave a saída no diretório de trabalho e registre a contagem (verdes e vermelhos).
+4. Rode a suíte no código original. Toda caracterização precisa passar; todo teste de comportamento novo precisa falhar pelo motivo esperado. Grave em `<diretório de trabalho>/suite-original.txt` o comando, a saída, a contagem (verdes e vermelhos) e a lista dos vermelhos.
 5. Um teste de caracterização só pode mudar depois se o comportamento que ele cobre estiver em "Intentional changes"; nesse caso, ele vira teste de comportamento novo. Nunca apague ou afrouxe um teste para fazê-lo passar.
 
 ### 3.3 Plano de estrutura
@@ -97,7 +97,7 @@ Siga a **ordem de aplicação** do final de `refactoring-playbook.md`:
 3. regra e erros;
 4. desempenho e limpeza.
 
-Dentro de cada grupo, trate os findings do relatório. Ao criar uma camada nova (serviço, model), escreva primeiro o teste unitário dela (vermelho) e depois o código (verde). Depois de cada grupo, suba a aplicação e **rode a suíte inteira**; não comece o grupo seguinte com teste de caracterização vermelho. Adicione dependências só se forem indispensáveis, e registre no manifesto. Se a troca de hash invalidar senhas do seed, refaça o seed mantendo as mesmas senhas de exemplo.
+Dentro de cada grupo, trate os findings do relatório. Ao criar uma camada nova (serviço, model), escreva primeiro o teste unitário dela (vermelho) e depois o código (verde). Depois de cada grupo, suba a aplicação e **rode a suíte inteira**, gravando a saída em `<diretório de trabalho>/suite-grupo-<n>.txt` (n = 1 a 4). Não comece o grupo seguinte com teste de caracterização vermelho. Aplicar os quatro grupos de uma vez não é permitido, mesmo em projeto pequeno; sem os quatro arquivos, a Fase 3 não fecha. Adicione dependências só se forem indispensáveis, e registre no manifesto. Se a troca de hash invalidar senhas do seed, refaça o seed mantendo as mesmas senhas de exemplo.
 
 ### 3.5 Validação
 
@@ -111,9 +111,9 @@ Dentro de cada grupo, trate os findings do relatório. Ao criar uma camada nova 
 
 ### 3.6 Pendências (obrigatório)
 
-1. Monte a lista de pendências: findings CRITICAL ou HIGH do relatório ainda presentes no código novo, divergências não intencionais, testes vermelhos e itens ✗ do checklist MVC.
-2. Se a lista tiver qualquer CRITICAL ou HIGH, volte ao playbook, aplique a transformação e repita a 3.5. Se nenhuma transformação resolver sem quebrar o contrato, **pare** e peça a decisão ao usuário, mostrando a lista. Nunca feche a Fase 3 com CRITICAL ou HIGH pendente.
-3. Rode a skill `validate-refactor` (em `.claude/skills/validate-refactor/`) passando o caminho do relatório. Só siga para a saída com `VALIDATION PASSED`. Com `VALIDATION FAILED`, trate cada pendência listada e repita este passo.
+1. Monte a lista de pendências: findings CRITICAL ou HIGH do relatório ainda presentes no código novo, sinais do catálogo encontrados no código novo (com a severidade do catálogo, mesmo que o relatório não os tenha registrado), divergências não intencionais, testes vermelhos e itens ✗ do checklist MVC.
+2. Se a lista tiver qualquer CRITICAL ou HIGH, volte ao playbook, aplique a transformação e repita a 3.5. Se nenhuma transformação resolver sem quebrar o contrato, **pare** e peça a decisão ao usuário, mostrando a lista. Nunca feche a Fase 3 com CRITICAL ou HIGH pendente. Se o usuário aceitar o risco explicitamente, registre em "Intentional changes" com a frase dele, e o box marca ✗ em "Zero CRITICAL/HIGH remaining"; um CRITICAL/HIGH nunca entra em "Anti-patterns remaining".
+3. Rode a skill `validate-refactor` com a ferramenta Skill (`validate-refactor <relatório> <diretório de trabalho>`). Aplicar as checagens à mão não vale como PASSED: se a skill não puder ser chamada, pare e informe o usuário. Cole no chat o box devolvido, sem editar. Só siga para a saída com `VALIDATION PASSED`. Com `VALIDATION FAILED`, trate cada pendência listada e repita este passo.
 
 ### 3.7 Saída
 
@@ -139,7 +139,7 @@ PHASE 3: REFACTORING COMPLETE
   ✓|✗ Entry point claro (só compõe a aplicação)
 
 ## Intentional changes
-- <cada mudança de comportamento, com o motivo>
+- <cada mudança de comportamento, com o motivo; inclua também o comportamento arriscado que foi preservado de propósito (ex.: rota que segue executando SQL atrás do guard). Nada disso fica só em notas fora do box>
 
 ## Anti-patterns remaining
 - <só MEDIUM ou LOW, com o motivo, ou "nenhum">
