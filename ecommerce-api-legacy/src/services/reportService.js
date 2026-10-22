@@ -1,25 +1,24 @@
-const { PAYMENT_STATUS, UNKNOWN_STUDENT } = require('../config/rules');
+const reportModel = require('../models/reportModel');
+const { PAYMENT_STATUS_PAID, UNKNOWN_STUDENT } = require('../config/rules');
 
-function createReportService({ reportModel }) {
-    async function buildFinancialReport() {
-        const reportByCourse = new Map();
-        for (const row of await reportModel.findCourseEnrollmentRows()) {
-            if (!reportByCourse.has(row.courseId)) {
-                reportByCourse.set(row.courseId, { course: row.courseTitle, revenue: 0, students: [] });
-            }
-            if (row.enrollmentId === null) continue;
+async function financialReport(db) {
+    const rows = await reportModel.listCourseEnrollments(db);
+    const byCourse = new Map();
 
-            const courseData = reportByCourse.get(row.courseId);
-            if (row.paymentStatus === PAYMENT_STATUS.PAID) courseData.revenue += row.paymentAmount;
-            courseData.students.push({
-                student: row.studentName ?? UNKNOWN_STUDENT,
-                paid: row.paymentAmount ?? 0,
-            });
+    for (const row of rows) {
+        if (!byCourse.has(row.course_id)) {
+            byCourse.set(row.course_id, { course: row.course_title, revenue: 0, students: [] });
         }
-        return [...reportByCourse.values()];
-    }
+        if (row.enrollment_id === null) continue;
 
-    return { buildFinancialReport };
+        const courseData = byCourse.get(row.course_id);
+        if (row.payment_status === PAYMENT_STATUS_PAID) courseData.revenue += row.payment_amount;
+        courseData.students.push({
+            student: row.user_name ?? UNKNOWN_STUDENT,
+            paid: row.payment_amount ?? 0,
+        });
+    }
+    return [...byCourse.values()];
 }
 
-module.exports = { createReportService };
+module.exports = { financialReport };

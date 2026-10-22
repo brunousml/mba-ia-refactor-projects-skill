@@ -1,8 +1,8 @@
-// Logger mínimo com nível; nunca recebe senha, chave ou número de cartão completo.
-const logger = {
-    info: (message) => console.log(`[INFO] ${message}`),
-    warn: (message) => console.warn(`[WARN] ${message}`),
-    error: (message, err) => console.error(`[ERROR] ${message}`, err ?? ''),
-};
+// Logger mínimo: nunca recebe senha, chave ou número completo de cartão.
+const format = (level, message, context) =>
+    `[${new Date().toISOString()}] ${level} ${message}${context ? ' ' + JSON.stringify(context) : ''}`;
 
-module.exports = { logger };
+module.exports = {
+    info: (message, context) => console.log(format('INFO', message, context)),
+    error: (message, error) => console.error(format('ERROR', message), error),
+};

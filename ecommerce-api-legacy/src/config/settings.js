@@ -1,26 +1,27 @@
 const crypto = require('crypto');
-const { logger } = require('../utils/logger');
 
 const appEnv = process.env.APP_ENV || 'development';
+const flag = (name) => (process.env[name] || 'false').toLowerCase() === 'true';
 
-// Segredo obrigatório: em produção a ausência derruba o boot; em desenvolvimento
-// vira um valor aleatório com warning.
 function secret(name) {
     if (process.env[name]) return process.env[name];
     if (appEnv === 'production') throw new Error(`Variável de ambiente obrigatória ausente: ${name}`);
-    logger.warn(`${name} não definida; usando valor aleatório de desenvolvimento`);
+    console.warn(`${name} não definida; usando valor aleatório de desenvolvimento`);
     return crypto.randomBytes(32).toString('hex');
 }
 
-const enableAdminRoutes = process.env.ENABLE_ADMIN_ROUTES === 'true';
+const enableAdminRoutes = flag('ENABLE_ADMIN_ROUTES');
+const enableSensitiveReads = flag('ENABLE_SENSITIVE_READS');
+const enableWriteRoutes = flag('ENABLE_WRITE_ROUTES');
+const anyGuardEnabled = enableAdminRoutes || enableSensitiveReads || enableWriteRoutes;
 
-const settings = {
+module.exports = {
     appEnv,
-    port: Number(process.env.PORT || 3000), // mesmo default do projeto original
-    paymentGatewayKey: process.env.PAYMENT_GATEWAY_KEY || '', // gateway simulado; vazio é aceito
+    port: Number(process.env.PORT || 3000),
+    dbPath: process.env.DB_PATH || ':memory:',
+    paymentGatewayKey: process.env.PAYMENT_GATEWAY_KEY || '',
     enableAdminRoutes,
-    // Só exigido quando as rotas administrativas estão ligadas.
-    adminToken: enableAdminRoutes ? secret('ADMIN_TOKEN') : '',
+    enableSensitiveReads,
+    enableWriteRoutes,
+    adminToken: anyGuardEnabled ? secret('ADMIN_TOKEN') : process.env.ADMIN_TOKEN || '',
 };
-
-module.exports = { settings };

@@ -1,10 +1,9 @@
 const express = require('express');
+const userController = require('../controllers/userController');
 const { asyncHandler } = require('../middlewares/asyncHandler');
+const { requireAdmin } = require('../middlewares/guards');
 
-function createUserRoutes({ userController, adminGuard }) {
-    const router = express.Router();
-    router.delete('/api/users/:id', adminGuard, asyncHandler(userController.deleteUser));
-    return router;
-}
+const router = express.Router();
+router.delete('/api/users/:id', requireAdmin, asyncHandler(userController.deleteUser));
 
-module.exports = { createUserRoutes };
+module.exports = router;

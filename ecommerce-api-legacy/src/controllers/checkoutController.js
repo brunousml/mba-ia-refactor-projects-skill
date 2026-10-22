@@ -1,28 +1,22 @@
-const isFilledString = (value) => typeof value === 'string' && value.trim() !== '';
+const checkoutService = require('../services/checkoutService');
 
-// c_id aceita número inteiro positivo ou texto só com dígitos (o original aceitava os dois).
-function parseCourseId(value) {
-    if (Number.isInteger(value) && value > 0) return value;
-    if (typeof value === 'string' && /^\d+$/.test(value) && Number(value) > 0) return Number(value);
-    return null;
-}
+const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+const isPositiveIntegerLike = (value) =>
+    (Number.isInteger(value) && value > 0) || (typeof value === 'string' && /^[1-9]\d*$/.test(value));
 
-function createCheckoutController({ checkoutService }) {
-    async function checkout(req, res) {
-        // Os nomes de campo do contrato (usr, eml, pwd, c_id, card) ficam só aqui.
-        const { usr: name, eml: email, pwd: password, c_id: rawCourseId, card: cardNumber } = req.body ?? {};
-        const courseId = parseCourseId(rawCourseId);
+async function checkout(req, res) {
+    // Nomes do contrato (usr, eml, pwd, c_id, card) ficam só na borda.
+    const { usr: name, eml: email, pwd: password, c_id: courseId, card: cardNumber } = req.body || {};
 
-        const passwordIsValid = password === undefined || password === null || typeof password === 'string';
-        if (!isFilledString(name) || !isFilledString(email) || !courseId || !isFilledString(cardNumber) || !passwordIsValid) {
-            return res.status(400).send("Bad Request");
-        }
-
-        const { enrollmentId } = await checkoutService.checkout({ name, email, password, courseId, cardNumber });
-        res.status(200).json({ msg: "Sucesso", enrollment_id: enrollmentId });
+    if (!isNonEmptyString(name) || !isNonEmptyString(email) || !isPositiveIntegerLike(courseId)
+        || !isNonEmptyString(cardNumber) || (password !== undefined && typeof password !== 'string')) {
+        return res.status(400).send('Bad Request');
     }
 
-    return { checkout };
+    const { enrollmentId } = await checkoutService.checkout(req.app.locals.db, {
+        name, email, password, courseId: Number(courseId), cardNumber,
+    });
+    res.status(200).json({ msg: 'Sucesso', enrollment_id: enrollmentId });
 }
 
-module.exports = { createCheckoutController };
+module.exports = { checkout };

@@ -9,6 +9,9 @@
       "pwd": "senhaforte",
       "c_id": 2,
       "card": "4111222233334444"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -21,6 +24,9 @@
       "pwd": "123",
       "c_id": 1,
       "card": "4111222233334444"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -33,6 +39,9 @@
       "pwd": "123",
       "c_id": 1,
       "card": "5111222233334444"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -45,6 +54,9 @@
       "pwd": "123",
       "c_id": 999,
       "card": "4111"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -53,6 +65,9 @@
     "path": "/api/checkout",
     "body": {
       "usr": "X"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -60,7 +75,7 @@
     "method": "GET",
     "path": "/api/admin/financial-report",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -68,7 +83,7 @@
     "method": "DELETE",
     "path": "/api/users/1",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   }
 ]

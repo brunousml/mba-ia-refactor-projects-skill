@@ -1,17 +1,8 @@
-function createUserModel(db) {
-    return {
-        findCredentialsByEmail: (email) => db.get("SELECT id, pass AS passwordHash FROM users WHERE email = ?", [email]),
+const findIdByEmail = (db, email) => db.get('SELECT id FROM users WHERE email = ?', [email]);
 
-        async create({ name, email, passwordHash }) {
-            const { lastID } = await db.run("INSERT INTO users (name, email, pass) VALUES (?, ?, ?)", [name, email, passwordHash]);
-            return lastID;
-        },
+const insert = (db, name, email, passHash) =>
+    db.run('INSERT INTO users (name, email, pass) VALUES (?, ?, ?)', [name, email, passHash]);
 
-        async deleteById(id) {
-            const { changes } = await db.run("DELETE FROM users WHERE id = ?", [id]);
-            return changes;
-        },
-    };
-}
+const deleteById = (db, id) => db.run('DELETE FROM users WHERE id = ?', [id]);
 
-module.exports = { createUserModel };
+module.exports = { findIdByEmail, insert, deleteById };

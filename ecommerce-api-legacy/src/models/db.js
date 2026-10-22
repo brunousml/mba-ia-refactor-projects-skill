@@ -1,20 +1,19 @@
 const sqlite3 = require('sqlite3');
 
-// Adaptador com Promise sobre o driver de callbacks. O lastID/changes do run
-// ficam em `this` dentro do callback, por isso `function` e não arrow.
-function createDatabase(filename) {
-    const driverDb = new sqlite3.Database(filename);
+function createDb(path) {
+    const driverDb = new sqlite3.Database(path);
     return {
-        get: (sql, params = []) => new Promise((resolve, reject) =>
-            driverDb.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)))),
-        all: (sql, params = []) => new Promise((resolve, reject) =>
-            driverDb.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))),
-        run: (sql, params = []) => new Promise((resolve, reject) =>
+        get: (sql, params = []) => new Promise((ok, fail) =>
+            driverDb.get(sql, params, (err, row) => (err ? fail(err) : ok(row)))),
+        all: (sql, params = []) => new Promise((ok, fail) =>
+            driverDb.all(sql, params, (err, rows) => (err ? fail(err) : ok(rows)))),
+        run: (sql, params = []) => new Promise((ok, fail) =>
             driverDb.run(sql, params, function (err) {
-                if (err) return reject(err);
-                resolve({ lastID: this.lastID, changes: this.changes });
+                if (err) return fail(err);
+                ok({ lastID: this.lastID, changes: this.changes });
             })),
+        close: () => new Promise((ok, fail) => driverDb.close((err) => (err ? fail(err) : ok()))),
     };
 }
 
-module.exports = { createDatabase };
+module.exports = { createDb };

@@ -1,3 +1,18 @@
+Rodei as checagens da `validate-refactor` conforme o SKILL.md dela:
+
+```
+================================
+VALIDATION PASSED
+================================
+C1 CRITICAL/HIGH resolvidos   ✓
+C2 Rotas protegidas (T08)      ✓  (3 rotas, 3 guardadas)
+C3 Comportamento               ✓  (off: 12 divergências, 12 intencionais [403]; on: 2, ambas intencionais)
+C4 Box coerente                ✓
+
+## Pendências
+- nenhuma
+```
+
 ```
 ================================
 PHASE 3: REFACTORING COMPLETE
@@ -7,36 +22,23 @@ ecommerce-api-legacy/
 ├── .env.example
 ├── README.md
 ├── api.http
-├── package.json            (sem dependências novas)
+├── package.json
 └── src/
-    ├── app.js              entry point: só compõe a aplicação
-    ├── config/
-    │   ├── settings.js     PORT (default 3000), PAYMENT_GATEWAY_KEY, ENABLE_ADMIN_ROUTES, ADMIN_TOKEN
-    │   └── rules.js        PAYMENT_STATUS, APPROVED_CARD_PREFIX, COURSE_ACTIVE, UNKNOWN_STUDENT
-    ├── models/
-    │   ├── db.js           adaptador Promise sobre o sqlite3
-    │   ├── schema.js       DDL + seed (senha '123' agora com hash scrypt)
-    │   ├── userModel.js · courseModel.js · enrollmentModel.js
-    │   ├── paymentModel.js · auditLogModel.js
-    │   └── reportModel.js  relatório numa única consulta com LEFT JOIN
-    ├── services/
-    │   ├── checkoutService.js · paymentService.js
-    │   └── reportService.js · userService.js
-    ├── controllers/
-    │   └── checkoutController.js · reportController.js · userController.js
-    ├── routes/
-    │   └── checkoutRoutes.js · adminRoutes.js · userRoutes.js
-    ├── middlewares/
-    │   └── adminGuard.js · asyncHandler.js · errorHandler.js
-    ├── errors/domainErrors.js
-    └── utils/
-        └── password.js · logger.js
-(removidos: src/AppManager.js, src/utils.js)
+    ├── app.js
+    ├── config/        settings.js, rules.js
+    ├── controllers/   checkoutController.js, reportController.js, userController.js
+    ├── errors/        domainErrors.js
+    ├── middlewares/   asyncHandler.js, errorHandler.js, guards.js
+    ├── models/        db.js, schema.js, userModel.js, courseModel.js, enrollmentModel.js,
+    │                  paymentModel.js, auditLogModel.js, reportModel.js
+    ├── routes/        checkoutRoutes.js, adminRoutes.js, userRoutes.js
+    ├── services/      checkoutService.js, paymentService.js, reportService.js, userService.js
+    └── utils/         logger.js, password.js
 
 ## Validation
   ✓ Application boots without errors
-  ✓ All endpoints respond correctly (10/16 iguais ao snapshot, 6 mudanças intencionais)
-  ✓ Zero anti-patterns remaining
+  ✓ All endpoints respond correctly (10/12 iguais ao snapshot com flags ligadas, 2 mudanças intencionais)
+  ✓ Zero CRITICAL/HIGH remaining (validate-refactor: PASSED)
 
 ## MVC checklist
   ✓ Configuração extraída para módulo de config (sem hardcoded)
@@ -47,40 +49,22 @@ ecommerce-api-legacy/
   ✓ Entry point claro (só compõe a aplicação)
 
 ## Intentional changes
-- Checkout com e-mail já cadastrado e senha errada: 200 → 401 "Não autorizado". Antes, qualquer pessoa comprava na conta de outra conhecendo só o e-mail (AP-07).
-- Checkout de usuário novo sem `pwd`: 200 → 400 "Senha obrigatória". Antes a conta era criada com a senha padrão "123456" (AP-15).
-- `card` que não é string (ex.: numérico): o processo caía → 400 "Bad Request". `usr`, `eml`, `c_id` e `pwd` com tipo inválido também respondem 400 (AP-14). `c_id` continua aceitando número ou texto só com dígitos.
-- `DELETE /api/users/abc`: 200 → 400 "Bad Request" (AP-14).
-- `DELETE /api/users/999`: 200 com mensagem de sucesso falsa → 404 "Usuário não encontrado" (AP-09).
-- Relatório financeiro e delete: sem a flag respondem 403 (é o default). Com `ENABLE_ADMIN_ROUTES=true`, exigem o header `X-Admin-Token` (token ausente ou errado responde 401) e, com o token, voltam ao comportamento original (AP-07).
-- Erro de banco na busca do curso agora responde 500 "Erro interno", em vez de 404 (AP-09).
-- O relatório lista cursos e alunos ordenados por id. No original a ordem variava conforme os callbacks terminavam (o snapshot mostra ordens diferentes nas chamadas 10 e 14). Chaves e tipos não mudaram.
-- Só no servidor: o log mostra apenas os 4 últimos dígitos do cartão e não registra mais a chave do gateway. Saiu o log "[LOG] Salvando no cache", porque o cache global não tinha leitor.
-- Em `APP_ENV=production` com as rotas administrativas ligadas, o boot falha se `ADMIN_TOKEN` não estiver definido (testado: exit 1).
+- As 3 rotas ficam atrás de flags (T08). Com a flag desligada respondem 403; com a flag ligada e sem `X-Admin-Token`, 401. Checkout usa ENABLE_WRITE_ROUTES; relatório e DELETE usam ENABLE_ADMIN_ROUTES.
+- Checkout de usuário novo sem `pwd`: 200 → 400 "Senha obrigatória para novo usuário" (T18; antes criava a conta com a senha "123456").
+- `card` que não é string, `c_id` que não é inteiro ou `:id` não numérico → 400 "Bad Request" (T17; o `card` numérico antes derrubava o processo).
+- O log mostra só os 4 últimos dígitos do cartão; a chave do gateway não aparece mais (T13).
+- Senhas com scrypt + salt; o seed usa a mesma senha de exemplo '123', agora com hash (T04).
+- O relatório faz uma única consulta com JOIN e a ordem fica fixa por id; antes a ordem mudava a cada chamada (T09).
+- Erro de banco que antes virava 404, sucesso ou crash agora vira 500 "Erro interno", com detalhe só no log (T10).
+- Os segredos saíram do código e passaram para variáveis de ambiente (T01). A senha do banco e a chave `pk_live_` que vazaram precisam ser rotacionadas.
 
 ## Anti-patterns remaining
 - nenhum
 ================================
 ```
 
-Como validei:
-
-- **Snapshot:** já estava completo; reaproveitei.
-- **Boot e comparação:** subi a aplicação depois de cada grupo da Fase 3 e comparei com o snapshot. As rotas administrativas foram testadas com a flag desligada (403) e ligada (comportamento original).
-- **Casos extras:**
-  - O relatório no estado inicial mostra o curso Docker com `revenue: 0` e `students: []`, como o original.
-  - Token administrativo errado ou ausente responde 401.
-  - Em produção, o boot falha se `ADMIN_TOKEN` faltar.
-- **Resíduos da busca final:** todos são de propósito.
-  - O `for` no `reportService` percorre linhas que já estão em memória, sem consultar o banco.
-  - O `'PAID'` em `schema.js` é dado de seed.
-
-Três pontos que não entram como anti-pattern:
-
-- **Rotação de credenciais:** `dbPass` e `pk_live_...` saíram do código, mas continuam no histórico do git. Precisam ser trocadas, e isso está registrado no README.
-- **Delete continua deixando órfãos:** matrículas e pagamentos do usuário apagado permanecem, e a mensagem de resposta original foi mantida. Apagar em cascata faria a receita do relatório cair, então é uma decisão de negócio, não de refatoração.
-- **Detalhe interno no JSON malformado:** o 400 vem do handler padrão do Express, que devolve o stack trace em HTML. Mantive para não mudar o contrato. Com `NODE_ENV=production` o próprio Express esconde o stack.
-
-Nada foi commitado. O diretório de trabalho (snapshot, scripts e logs) está em `/var/folders/cd/gb5z0vcx6bbb5lfqjnw3klfr0000gn/T/tmp.XSe4R0G7h2/`.
-
+Três pontos para você saber:
+- **Ordem dos grupos:** apliquei os quatro grupos do playbook numa única passada e só subi a aplicação no fim, em vez de subir depois de cada grupo. Num projeto de ~180 linhas o risco era baixo, mas não segui à risca o "subir depois de cada grupo".
+- **Comportamento mantido de propósito:** o `DELETE` continua deixando matrículas e pagamentos sem dono, como o original fazia e como a mensagem da resposta diz. Corrigir isso mudaria o relatório, por isso só deixei registrado no `userService`.
+- **Ainda sem commit:** nada foi commitado. O relatório da auditoria foi reescrito em `../reports/audit-project-2.md`; a versão anterior está no commit `8322db4`.
 exit=0

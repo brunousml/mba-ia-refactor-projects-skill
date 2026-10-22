@@ -1,13 +1,10 @@
-const { PAYMENT_STATUS, APPROVED_CARD_PREFIX } = require('../config/rules');
+const { APPROVED_CARD_PREFIX, PAYMENT_STATUS_PAID, PAYMENT_STATUS_DENIED } = require('../config/rules');
+const logger = require('../utils/logger');
 
-// Gateway simulado: a aprovação depende só do prefixo do cartão.
-function createPaymentService({ logger }) {
-    function authorize({ cardNumber, courseId }) {
-        logger.info(`Processando cartão final ${cardNumber.slice(-4)} para o curso ${courseId}`);
-        return cardNumber.startsWith(APPROVED_CARD_PREFIX) ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DENIED;
-    }
-
-    return { authorize };
+// Gateway simulado: aprova cartões com o prefixo configurado.
+function authorize(cardNumber) {
+    logger.info('Processando cartão', { cardLast4: cardNumber.slice(-4) });
+    return cardNumber.startsWith(APPROVED_CARD_PREFIX) ? PAYMENT_STATUS_PAID : PAYMENT_STATUS_DENIED;
 }
 
-module.exports = { createPaymentService };
+module.exports = { authorize };
