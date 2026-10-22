@@ -1,8 +1,11 @@
-// Logger mínimo: nunca recebe senha, chave ou número completo de cartão.
-const format = (level, message, context) =>
-    `[${new Date().toISOString()}] ${level} ${message}${context ? ' ' + JSON.stringify(context) : ''}`;
+// Logger mínimo. Nunca recebe número de cartão, senha ou chave.
+const write = (level, stream) => (message, meta) => {
+    const line = `[${new Date().toISOString()}] ${level} ${message}`;
+    stream(meta ? `${line} ${JSON.stringify(meta)}` : line);
+};
 
 module.exports = {
-    info: (message, context) => console.log(format('INFO', message, context)),
-    error: (message, error) => console.error(format('ERROR', message), error),
+    info: write('INFO', console.log),
+    warn: write('WARN', console.warn),
+    error: write('ERROR', console.error),
 };

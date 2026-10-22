@@ -11,7 +11,7 @@ Prefira o que já está no projeto. Se não houver nada, use a opção sem depen
 | Python + Flask | `pytest` (ou `unittest`, se não puder instalar) | `app.test_client()` | `python -m pytest -q tests` |
 | Python + FastAPI | `pytest` | `fastapi.testclient.TestClient` | `python -m pytest -q tests` |
 | Python + Django | `django.test` | `self.client` | `python manage.py test` |
-| Node + Express | `node:test` + `node:assert` (nativos) | `app.listen(0)` + `fetch` | `node --test tests/` |
+| Node + Express | `node:test` + `node:assert` (nativos) | `app.listen(0)` + `fetch` | `node --test 'tests/**/*.test.js'` (registre como `npm test`) |
 | Outra | o runner padrão da linguagem | cliente HTTP do framework ou servidor em porta efêmera | — |
 
 Se o entry point original sobe o servidor ao ser importado (`app.listen` no topo, `app.run` sem `if __name__ == "__main__"`), os testes de caracterização sobem a aplicação como processo filho numa porta livre e chamam por HTTP. Não altere o código original para torná-lo testável antes de ter os testes.

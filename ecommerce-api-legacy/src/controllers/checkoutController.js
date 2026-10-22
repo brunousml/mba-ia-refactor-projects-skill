@@ -1,22 +1,26 @@
-const checkoutService = require('../services/checkoutService');
+const { DomainError } = require('../errors/domainError');
 
-const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
-const isPositiveIntegerLike = (value) =>
-    (Number.isInteger(value) && value > 0) || (typeof value === 'string' && /^[1-9]\d*$/.test(value));
+const isFilledString = (value) => typeof value === 'string' && value.trim() !== '';
+const isCourseId = (value) => Number.isInteger(Number(value)) && String(value).trim() !== '';
 
-async function checkout(req, res) {
-    // Nomes do contrato (usr, eml, pwd, c_id, card) ficam só na borda.
-    const { usr: name, eml: email, pwd: password, c_id: courseId, card: cardNumber } = req.body || {};
-
-    if (!isNonEmptyString(name) || !isNonEmptyString(email) || !isPositiveIntegerLike(courseId)
-        || !isNonEmptyString(cardNumber) || (password !== undefined && typeof password !== 'string')) {
-        return res.status(400).send('Bad Request');
+// A API recebe nomes abreviados (usr, eml, pwd, c_id, card); dentro das camadas os nomes são descritivos.
+function readCheckoutInput(body = {}) {
+    const { usr, eml, pwd, c_id: courseId, card } = body;
+    if (!usr || !eml || !courseId || !card) throw new DomainError('Bad Request', 400);
+    if (!isFilledString(usr) || !isFilledString(eml) || !isCourseId(courseId) || !isFilledString(card)) {
+        throw new DomainError('Bad Request', 400);
     }
-
-    const { enrollmentId } = await checkoutService.checkout(req.app.locals.db, {
-        name, email, password, courseId: Number(courseId), cardNumber,
-    });
-    res.status(200).json({ msg: 'Sucesso', enrollment_id: enrollmentId });
+    if (pwd !== undefined && typeof pwd !== 'string') throw new DomainError('Bad Request', 400);
+    return { name: usr, email: eml, password: pwd, courseId: Number(courseId), cardNumber: card };
 }
 
-module.exports = { checkout };
+function createCheckoutController({ checkoutService }) {
+    return {
+        async checkout(req, res) {
+            const { enrollmentId } = await checkoutService.checkout(readCheckoutInput(req.body));
+            res.status(200).json({ msg: 'Sucesso', enrollment_id: enrollmentId });
+        },
+    };
+}
+
+module.exports = { createCheckoutController };

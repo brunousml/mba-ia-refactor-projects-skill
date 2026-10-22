@@ -10,90 +10,96 @@ Files:   3 analyzed | ~180 lines of code
 ```
 
 ## Summary
-CRITICAL: 4 | HIGH: 4 | MEDIUM: 3 | LOW: 2
+CRITICAL: 4 | HIGH: 4 | MEDIUM: 4 | LOW: 2
 
 ## Findings
 
-### [CRITICAL] God Class Mixing Data Access, Business Rules and Routing (AP-03)
-File: src/AppManager.js:4-139, src/AppManager.js:10-23, src/AppManager.js:25-137
-Description: A classe `AppManager` abre a conexão (linha 7), cria o schema e roda o seed (`initDb`, linhas 10-23), registra as três rotas HTTP (`setupRoutes`, linhas 25-137) e decide regra de negócio dentro delas (aprovação do pagamento na linha 46, soma de receita nas linhas 108-110).
-Impact: Nenhuma regra pode ser testada sem subir Express e SQLite juntos, e mudar uma rota arrisca quebrar as outras.
-Recommendation: T03 (separar config, models, services, controllers e routes por domínio) e T06 (tirar a regra de pagamento e o cálculo do relatório das rotas).
+### [CRITICAL] God Class (AP-03)
+File: src/AppManager.js:4-139, src/AppManager.js:10-23, src/AppManager.js:46, src/AppManager.js:108-110, src/AppManager.js:28, src/AppManager.js:80, src/AppManager.js:131
+Description: A classe `AppManager` cria o schema e o seed (10-23), decide aprovação de pagamento e soma receita (46, 108-110) e registra e trata as três rotas HTTP (28, 80, 131), tudo no mesmo módulo.
+Impact: Nenhuma regra pode ser testada ou alterada sem subir HTTP e banco juntos, e qualquer mudança arrisca as três rotas.
+Recommendation: T03 (separar em config, models, services, controllers e routes) e T06 (regra de pagamento e de receita em serviços).
 
-### [CRITICAL] Card Number and Gateway Key in Logs, Weak Password Hash (AP-04)
+### [CRITICAL] Sensitive Data Exposure (AP-04)
 File: src/AppManager.js:18, src/AppManager.js:45, src/AppManager.js:68, src/utils.js:17-23
-Description: O checkout escreve no console o número completo do cartão e a chave do gateway (linha 45). `badCrypto` (utils.js:17-23) é uma função caseira que repete os dois primeiros caracteres do base64 da senha: o resultado depende só do início da senha, não tem salt e é reversível. O seed grava a senha `'123'` em texto puro (linha 18).
-Impact: Quem lê os logs obtém cartões e a chave de produção; quem lê o banco recupera ou colide qualquer senha.
-Recommendation: T13 (log sem cartão nem chave; no máximo os 4 últimos dígitos), T04 (hash com salt via `crypto.scrypt` da stdlib) e refazer o seed com a mesma senha de exemplo hasheada.
+Description: O número completo do cartão e a chave do gateway vão para o `console.log` (45); a senha é "hasheada" por `badCrypto`, que repete base64 e trunca em 10 caracteres (utils 17-23, usada em 68); o seed grava a senha `'123'` em texto puro (18).
+Impact: Logs expõem cartões e a chave de pagamento, e senhas são recuperáveis por qualquer um com acesso ao banco.
+Recommendation: T04 (hash forte com salt via `crypto.scrypt`, refazendo o seed com a mesma senha de exemplo) e T13 (log sem cartão nem chave).
 
-### [CRITICAL] Unauthenticated Destructive and Financial Endpoints (AP-07)
-File: src/AppManager.js:80, src/AppManager.js:131-136
-Description: `GET /api/admin/financial-report` devolve receita por curso e nome/valor pago por aluno sem nenhuma checagem de identidade. `DELETE /api/users/:id` apaga qualquer usuário sem autenticação (e deixa matrículas e pagamentos órfãos, como a própria resposta admite).
-Impact: Qualquer cliente lê dados financeiros e pessoais e apaga contas.
-Recommendation: T08 com guard de administração (`ENABLE_ADMIN_ROUTES` + `X-Admin-Token`) nas duas rotas; 403 com a flag desligada.
+### [CRITICAL] Unauthenticated Destructive and Sensitive Endpoints (AP-07)
+File: src/AppManager.js:80, src/AppManager.js:131
+Description: `GET /api/admin/financial-report` devolve receita e nomes de alunos com valores pagos, e `DELETE /api/users/:id` apaga usuários (deixando matrículas e pagamentos órfãos, como a própria resposta admite em 135), ambos sem nenhuma checagem de identidade.
+Impact: Qualquer cliente lê dados financeiros e pessoais ou apaga usuários.
+Recommendation: T08 com o guard de administração (`ENABLE_ADMIN_ROUTES` + `X-Admin-Token`) nas duas rotas.
 
-### [CRITICAL] Hardcoded Credentials and Live Payment Key (AP-01)
-File: src/utils.js:2-5
-Description: O objeto `config` contém `dbUser`, `dbPass: "senha_super_secreta_prod_123"`, `paymentGatewayKey: "pk_live_1234567890abcdef"` e `smtpUser` como literais no código.
-Impact: Qualquer pessoa com acesso ao repositório obtém a senha do banco e a chave de produção do gateway.
-Recommendation: T01 (ler de variáveis de ambiente num módulo de config, sem default para segredos, com `.env.example`).
+### [CRITICAL] Hardcoded Credentials (AP-01)
+File: src/utils.js:2-4
+Description: `dbUser`, `dbPass` (`senha_super_secreta_prod_123`) e `paymentGatewayKey` (`pk_live_1234567890abcdef`) estão como literais no objeto `config`.
+Impact: Quem tem acesso ao repositório tem as credenciais de produção do banco e do gateway.
+Recommendation: T01 (ler de variáveis de ambiente num módulo de config, com `.env.example` sem valores reais).
 
-### [HIGH] Business Rules and Data Access Inside Route Handler (AP-05)
-File: src/AppManager.js:28-78, src/AppManager.js:46, src/AppManager.js:80-129
-Description: O handler de checkout faz as consultas e inserções diretamente (linhas 37-72), decide aprovação de pagamento pelo prefixo do cartão (linha 46) e cria usuário implicitamente. O handler do relatório monta a agregação de receita (linhas 89-127) dentro da rota.
-Impact: Regra de pagamento e de relatório não podem ser testadas nem reutilizadas sem HTTP.
-Recommendation: T06 (mover para `checkoutService` e `reportService`; rota só repassa).
+### [HIGH] Business Logic in Route Handlers (AP-05)
+File: src/AppManager.js:37-75, src/AppManager.js:46-48, src/AppManager.js:108-110
+Description: O handler de checkout consulta o banco direto, cria usuário, aprova o pagamento pelo prefixo do cartão (`startsWith("4")`) e grava matrícula, pagamento e auditoria; o handler do relatório calcula a receita somando pagamentos `PAID`.
+Impact: As regras de pagamento e receita não podem ser testadas nem reutilizadas fora da rota.
+Recommendation: T06 (serviços de checkout e de relatório chamados pelo controller).
 
-### [HIGH] Mutable Module-Level State (AP-06)
-File: src/utils.js:9-10, src/utils.js:14, src/AppManager.js:59
-Description: `globalCache` é um objeto de módulo mutado por `logAndCache` a cada checkout (sem limite de tamanho), e `totalRevenue` é um `let` de módulo exportado.
-Impact: Estado compartilhado entre requisições cresce sem limite e torna o comportamento dependente da ordem das chamadas.
-Recommendation: T07 (remover o cache global, que ninguém lê; remover `totalRevenue`).
+### [HIGH] Global Mutable State (AP-06)
+File: src/utils.js:9, src/utils.js:14, src/AppManager.js:7
+Description: `globalCache` é um objeto de módulo mutado a cada checkout por `logAndCache` e exportado; a conexão SQLite única é criada no construtor e compartilhada por todas as requisições.
+Impact: Estado cresce sem limite e vaza entre requisições e testes, e a conexão não pode ser substituída em teste.
+Recommendation: T07 (injetar a conexão nos models e remover o cache global, que nenhuma rota lê).
 
-### [HIGH] Default Password When Input Is Empty (AP-15)
+### [HIGH] Insecure Default Password (AP-15)
 File: src/AppManager.js:68
-Description: Se o checkout vem sem `pwd`, o usuário é criado com a senha padrão `"123456"` (`badCrypto(p || "123456")`).
-Impact: Contas criadas sem senha ficam acessíveis com uma senha conhecida.
-Recommendation: T18 (exigir `pwd` quando o usuário ainda não existe; 400 se ausente).
+Description: Quando o checkout chega sem `pwd`, o usuário é criado com a senha padrão `"123456"` (`p || "123456"`).
+Impact: Toda conta criada sem senha é acessível com uma senha conhecida.
+Recommendation: T18 (sem senha default: exigir `pwd` para criar usuário novo e devolver 400).
 
 ### [HIGH] Unauthenticated Write Endpoint (AP-07)
 File: src/AppManager.js:28
-Description: `POST /api/checkout` cria usuários, matrículas, pagamentos e logs de auditoria sem checagem de identidade.
+Description: `POST /api/checkout` cria usuários, matrículas e pagamentos sem nenhuma checagem de identidade.
 Impact: Qualquer cliente cria contas e matrículas em nome de qualquer e-mail.
-Recommendation: T08 com guard de escrita (`ENABLE_WRITE_ROUTES` + `X-Admin-Token`).
+Recommendation: T08 com o guard de escrita (`ENABLE_WRITE_ROUTES` + `X-Admin-Token`).
 
-### [MEDIUM] N+1 Queries in Financial Report (AP-08)
-File: src/AppManager.js:89-127
-Description: Para cada curso há uma consulta de matrículas (linha 92) e, para cada matrícula, uma consulta de usuário (linha 104) e outra de pagamento (linha 106), em callbacks aninhados.
-Impact: O número de consultas cresce com cursos × matrículas e a ordem de resposta fica não determinística.
-Recommendation: T09 (uma consulta com `LEFT JOIN` entre courses, enrollments, users e payments, agregada no service).
+### [MEDIUM] N+1 Queries (AP-08)
+File: src/AppManager.js:92, src/AppManager.js:104, src/AppManager.js:106
+Description: O relatório faz uma consulta de matrículas por curso e, para cada matrícula, uma de usuário e uma de pagamento, em callbacks aninhados.
+Impact: O número de consultas cresce com cursos × matrículas e o relatório fica lento com volume real.
+Recommendation: T09 (uma consulta com `LEFT JOIN` de cursos, matrículas, usuários e pagamentos, agrupada no serviço).
 
-### [MEDIUM] Ignored or Generic Error Handling (AP-09)
-File: src/AppManager.js:38, src/AppManager.js:57, src/AppManager.js:92-93, src/AppManager.js:104, src/AppManager.js:106, src/AppManager.js:133
-Description: Callbacks recebem `err` e não verificam (linhas 57, 104, 106, 133); na linha 92 `enrollments.length` quebra se a consulta falhar; na linha 38 erro de banco vira 404 "Curso não encontrado". Não há handler central.
-Impact: Falhas reais viram respostas de sucesso, 404 enganosos ou derrubam o processo.
-Recommendation: T10 (callbacks viram Promises, erros sobem para um middleware central de erro).
+### [MEDIUM] Missing or Swallowed Error Handling (AP-09)
+File: src/AppManager.js:38, src/AppManager.js:57, src/AppManager.js:92-93, src/AppManager.js:104-106, src/AppManager.js:133-135
+Description: Erro de banco no checkout vira 404 "Curso não encontrado" (38); os callbacks de auditoria, matrículas, usuário e pagamento ignoram `err` (57, 92, 104, 106), e em 93 `enrollments.length` quebra o processo se a consulta falhar; o DELETE ignora o erro e responde sucesso mesmo para id inexistente (133-135). Não há handler central.
+Impact: Falhas reais ficam escondidas ou derrubam o processo, e o cliente recebe status enganoso.
+Recommendation: T10 (erros de domínio e middleware central de erro; `async/await` com propagação).
 
-### [MEDIUM] Missing Input Type Validation (AP-14)
-File: src/AppManager.js:29-35, src/AppManager.js:46, src/AppManager.js:132
-Description: Só há checagem de presença. `card` é usado com `cc.startsWith` sem checar tipo: um `card` numérico lança `TypeError` dentro do callback do sqlite e derruba o processo. `c_id` e `:id` não são validados como inteiros; corpo ausente/não-JSON não é tratado.
-Impact: Uma requisição malformada derruba a API para todos.
-Recommendation: T17 (validar tipos de `usr`, `eml`, `pwd`, `card` como string e `c_id`/`id` como inteiro; 400 em vez de crash).
+### [MEDIUM] Duplicated Logic (AP-13)
+File: src/AppManager.js:96-98, src/AppManager.js:119-121
+Description: O bloco que fecha um curso no relatório (`report.push`, decremento de `coursesPending` e `res.json`) está copiado em dois pontos.
+Impact: Corrigir a contagem em um ponto e esquecer o outro faz a resposta sair incompleta ou nunca sair.
+Recommendation: T16 (some com a T09: a montagem do relatório fica numa única função do serviço).
 
-### [LOW] Magic Strings in Payment Rules (AP-11)
-File: src/AppManager.js:46, src/AppManager.js:108, src/AppManager.js:21
-Description: O prefixo `"4"` de aprovação e os status `"PAID"`/`"DENIED"` aparecem como literais soltos.
-Impact: Mudar a regra exige caçar literais espalhados.
-Recommendation: T12 (constantes em `config/rules.js`).
+### [MEDIUM] Missing Input Validation (AP-14)
+File: src/AppManager.js:29-35, src/AppManager.js:46
+Description: Só a presença dos campos é checada; `card` numérico (`4111...` sem aspas) quebra em `cc.startsWith` (TypeError → 500), e `c_id` e `eml` não têm checagem de tipo ou formato.
+Impact: Entrada malformada gera 500 em vez de 400.
+Recommendation: T17 (validar tipos na borda e devolver 400).
+
+### [LOW] Magic Numbers and Strings (AP-11)
+File: src/AppManager.js:46, src/AppManager.js:68, src/AppManager.js:108, src/utils.js:6, src/utils.js:19
+Description: Prefixo de cartão aprovado `"4"`, status `"PAID"`/`"DENIED"`, senha `"123456"`, porta `3000` e as `10000` iterações aparecem como literais.
+Impact: Regras de negócio ficam escondidas e fáceis de divergir.
+Recommendation: T12 (constantes nomeadas num módulo de regras).
 
 ### [LOW] Poor Naming, Dead Code and console.log as Logger (AP-12)
-File: src/AppManager.js:2, src/AppManager.js:26, src/AppManager.js:29-33, src/utils.js:2, src/utils.js:5, src/utils.js:10, src/utils.js:13, src/utils.js:25
-Description: Variáveis `u`, `e`, `p`, `cid`, `cc`; `self` para contornar `this`; `totalRevenue`, `dbUser`, `dbPass`, `smtpUser` e o export `globalCache` não são usados; `console.log` como log de produção.
-Impact: Leitura difícil e código morto que confunde manutenção.
-Recommendation: T14 (nomes descritivos), T15 (remover código morto) e T13 (logger simples).
+File: src/AppManager.js:2, src/AppManager.js:26, src/AppManager.js:29-33, src/AppManager.js:45, src/utils.js:2-5, src/utils.js:10, src/utils.js:13, src/utils.js:25
+Description: Variáveis `u`, `e`, `p`, `cid`, `cc` e `self`; `totalRevenue` é importado e nunca usado, `globalCache` é exportado sem leitor, e `dbUser`, `dbPass`, `smtpUser` não são usados; `console.log` serve de log de produção.
+Impact: Leitura difícil e código morto que parece ter efeito.
+Recommendation: T14 (nomes descritivos), T15 (remover código morto) e T13 (logger).
 
 ```
 ================================
-Total: 13 findings
+Total: 14 findings
 ================================
 ```
