@@ -92,11 +92,17 @@ Dentro de cada grupo, trate os findings do relatório. Suba a aplicação depois
 1. Restaure o estado inicial do banco (como no passo 5 do snapshot) e suba a aplicação refatorada. O boot precisa terminar sem erro.
 2. Chame as mesmas rotas, com os mesmos dados e na mesma ordem do snapshot.
 3. Compare status e estrutura do corpo (chaves e tipos), ignorando ids e timestamps.
-4. Rotas protegidas por flag: valide com a flag desligada (403 esperado) e ligada (comportamento original).
+4. Rotas protegidas por flag (T08): valide com as flags desligadas (403 esperado) e com `ENABLE_ADMIN_ROUTES`, `ENABLE_SENSITIVE_READS`, `ENABLE_WRITE_ROUTES` ligadas e `X-Admin-Token` (comportamento original).
 5. Corrija toda divergência não intencional. Liste as intencionais.
 6. Confira de novo os findings do relatório no código novo.
 
-### 3.5 Saída
+### 3.5 Pendências (obrigatório)
+
+1. Monte a lista de pendências: findings CRITICAL ou HIGH do relatório ainda presentes no código novo, divergências não intencionais e itens ✗ do checklist MVC.
+2. Se a lista tiver qualquer CRITICAL ou HIGH, volte ao playbook, aplique a transformação e repita a 3.4. Se nenhuma transformação resolver sem quebrar o contrato, **pare** e peça a decisão ao usuário, mostrando a lista. Nunca feche a Fase 3 com CRITICAL ou HIGH pendente.
+3. Rode a skill `validate-refactor` (em `.claude/skills/validate-refactor/`) passando o caminho do relatório. Só siga para a saída com `VALIDATION PASSED`. Com `VALIDATION FAILED`, trate cada pendência listada e repita este passo.
+
+### 3.6 Saída
 
 ```
 ================================
@@ -108,7 +114,7 @@ PHASE 3: REFACTORING COMPLETE
 ## Validation
   ✓|✗ Application boots without errors
   ✓|✗ All endpoints respond correctly (<N>/<total> iguais ao snapshot, <K> mudanças intencionais)
-  ✓|✗ Zero anti-patterns remaining
+  ✓|✗ Zero CRITICAL/HIGH remaining (validate-refactor: PASSED)
 
 ## MVC checklist
   ✓|✗ Configuração extraída para módulo de config (sem hardcoded)
@@ -122,6 +128,6 @@ PHASE 3: REFACTORING COMPLETE
 - <cada mudança de comportamento, com o motivo>
 
 ## Anti-patterns remaining
-- <lista com o motivo, ou "nenhum">
+- <só MEDIUM ou LOW, com o motivo, ou "nenhum">
 ================================
 ```

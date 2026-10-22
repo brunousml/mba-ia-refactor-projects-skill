@@ -115,7 +115,7 @@ Nomes de caminho e de função que costumam indicar isso: `admin`, `reset`, `dro
 
 Também se aplica (HIGH) ao "login" que devolve um token que nenhuma outra rota verifica: não existe autenticação real.
 
-**Correção:** T08.
+**Correção:** T08, com o guard que corresponde ao sinal: administração (reset, SQL, relatório), leitura sensível (dados pessoais ou financeiros) ou escrita (demais POST/PUT/PATCH/DELETE). O login falso é resolvido protegendo as rotas que deveriam depender dele.
 
 ## AP-08 — Query N+1 (MEDIUM)
 

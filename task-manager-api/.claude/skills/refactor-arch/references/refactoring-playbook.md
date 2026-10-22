@@ -12,7 +12,7 @@ Dezoito transformações, cada uma ligada a um ou mais anti-patterns do catálog
 - Depois de cada grupo de transformações, o boot precisa continuar sem erro.
 - Toda mudança de comportamento observável, mesmo que intencional por segurança, vai para "Intentional changes".
 
-Índice: T01 credenciais · T02 SQL parametrizado · T03 separar camadas · T04 hash de senha · T05 serialização explícita · T06 regra no serviço · T07 dependência injetada · T08 guard de administração · T09 consulta em lote · T10 erro central · T11 API moderna · T12 constantes nomeadas · T13 logger · T14 nomes descritivos · T15 remover código morto · T16 extrair regra duplicada · T17 validar na borda · T18 configuração segura.
+Índice: T01 credenciais · T02 SQL parametrizado · T03 separar camadas · T04 hash de senha · T05 serialização explícita · T06 regra no serviço · T07 dependência injetada · T08 guards de acesso por flag · T09 consulta em lote · T10 erro central · T11 API moderna · T12 constantes nomeadas · T13 logger · T14 nomes descritivos · T15 remover código morto · T16 extrair regra duplicada · T17 validar na borda · T18 configuração segura.
 
 ---
 
@@ -442,9 +442,17 @@ app.locals.contadores = contadores;   // injetado; nenhum módulo cria o própri
 
 ---
 
-## T08 — Guard de administração (AP-07)
+## T08 — Guards de acesso por flag (AP-07)
 
-A rota continua registrada. Por padrão ela responde **403**. Com a flag ligada, exige o token de administração.
+Corrige todo AP-07 sem inventar um sistema de autenticação, o que mudaria o contrato de todos os clientes. A rota continua registrada. Cada rota sem autenticação recebe **um** dos três guards, conforme o sinal do finding:
+
+| Guard | Flag (default `false`) | Rotas |
+|---|---|---|
+| administração | `ENABLE_ADMIN_ROUTES` | reset, drop, execução de SQL ou comando, exclusão em massa, relatório/exportação |
+| leitura sensível | `ENABLE_SENSITIVE_READS` | GET que devolve dados pessoais (usuários, e-mails), financeiros ou de pagamento |
+| escrita | `ENABLE_WRITE_ROUTES` | POST, PUT, PATCH e DELETE comuns, incluindo as que dependem de um "login" cujo token ninguém verifica |
+
+Com a flag desligada, a rota responde **403**. Com a flag ligada, exige o header `X-Admin-Token` igual a `ADMIN_TOKEN` (comparação em tempo constante); sem ele, **401**. As três flags compartilham a mesma fábrica de guard, para não triplicar código. Rotas de saúde, login e leituras públicas (catálogo, listagens sem dados pessoais) ficam sem guard. Se ficar em dúvida se uma leitura é sensível, trate como sensível e registre em "Intentional changes".
 
 **Python — antes**
 ```python
@@ -452,25 +460,39 @@ A rota continua registrada. Por padrão ela responde **403**. Com a flag ligada,
 def limpar():
     db.execute("DELETE FROM faturas")
     return json({"ok": True})
+
+@route("GET", "/clientes")
+def listar_clientes(): ...
+
+@route("POST", "/faturas")
+def criar_fatura(): ...
 ```
 
 **Python — depois**
 ```python
-# middlewares/admin.py
+# middlewares/guards.py
 import hmac
 
-def exigir_admin(handler):
-    def envolvido(*args, **kwargs):
-        if not settings.ENABLE_ADMIN_ROUTES:
-            return json({"erro": "Recurso desabilitado"}, 403)
-        token = request.headers.get("X-Admin-Token", "")
-        if not settings.ADMIN_TOKEN or not hmac.compare_digest(token, settings.ADMIN_TOKEN):
-            return json({"erro": "Não autorizado"}, 401)
-        return handler(*args, **kwargs)
-    return envolvido
+def exigir_flag(nome_flag):
+    def decorador(handler):
+        def envolvido(*args, **kwargs):
+            if not getattr(settings, nome_flag):
+                return json({"erro": "Recurso desabilitado"}, 403)
+            token = request.headers.get("X-Admin-Token", "")
+            if not settings.ADMIN_TOKEN or not hmac.compare_digest(token, settings.ADMIN_TOKEN):
+                return json({"erro": "Não autorizado"}, 401)
+            return handler(*args, **kwargs)
+        return envolvido
+    return decorador
 
-# routes/admin_routes.py
+exigir_admin = exigir_flag("ENABLE_ADMIN_ROUTES")
+exigir_leitura_sensivel = exigir_flag("ENABLE_SENSITIVE_READS")
+exigir_escrita = exigir_flag("ENABLE_WRITE_ROUTES")
+
+# routes/*.py
 registrar("POST", "/admin/limpar-faturas", exigir_admin(admin_controller.limpar))
+registrar("GET", "/clientes", exigir_leitura_sensivel(cliente_controller.listar))
+registrar("POST", "/faturas", exigir_escrita(fatura_controller.criar))
 ```
 
 **JavaScript — antes**
@@ -478,28 +500,40 @@ registrar("POST", "/admin/limpar-faturas", exigir_admin(admin_controller.limpar)
 app.post('/admin/limpar-faturas', (req, res) => {
   db.run('DELETE FROM faturas', () => res.json({ ok: true }));
 });
+app.get('/clientes', listarClientes);
+app.post('/faturas', criarFatura);
 ```
 
 **JavaScript — depois**
 ```js
-// middlewares/admin.js
+// middlewares/guards.js
 const crypto = require('crypto');
 
-function exigirAdmin(req, res, next) {
-  if (!settings.enableAdminRoutes) return res.status(403).json({ erro: 'Recurso desabilitado' });
-  const token = Buffer.from(req.get('X-Admin-Token') || '');
-  const esperado = Buffer.from(settings.adminToken || '');
-  if (!esperado.length || token.length !== esperado.length || !crypto.timingSafeEqual(token, esperado)) {
-    return res.status(401).json({ erro: 'Não autorizado' });
-  }
-  next();
+function exigirFlag(nomeFlag) {
+  return (req, res, next) => {
+    if (!settings[nomeFlag]) return res.status(403).json({ erro: 'Recurso desabilitado' });
+    const token = Buffer.from(req.get('X-Admin-Token') || '');
+    const esperado = Buffer.from(settings.adminToken || '');
+    if (!esperado.length || token.length !== esperado.length || !crypto.timingSafeEqual(token, esperado)) {
+      return res.status(401).json({ erro: 'Não autorizado' });
+    }
+    next();
+  };
 }
 
-// routes/adminRoutes.js
+const exigirAdmin = exigirFlag('enableAdminRoutes');
+const exigirLeituraSensivel = exigirFlag('enableSensitiveReads');
+const exigirEscrita = exigirFlag('enableWriteRoutes');
+
+// routes/*.js
 router.post('/admin/limpar-faturas', exigirAdmin, adminController.limpar);
+router.get('/clientes', exigirLeituraSensivel, clienteController.listar);
+router.post('/faturas', exigirEscrita, faturaController.criar);
 ```
 
-**Validação:** chame a rota com a flag desligada (espera 403) e com a flag ligada e o token (espera o comportamento original). Registre os dois resultados.
+`ADMIN_TOKEN` é obrigatório (T01) quando qualquer uma das três flags estiver ligada.
+
+**Validação:** chame cada rota protegida com as flags desligadas (espera 403) e com as flags ligadas e o token (espera o comportamento original). Registre os dois resultados. Toda rota que virou 403 vai para "Intentional changes".
 
 ---
 

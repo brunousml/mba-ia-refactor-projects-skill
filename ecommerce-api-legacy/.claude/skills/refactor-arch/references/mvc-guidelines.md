@@ -34,7 +34,7 @@ serializers/   (opcional) o que sai na resposta; esconde campos sensíveis
 2. **Injeção de dependência simples.** Banco, cache e serviços são criados no entry point e passados para quem usa. Nenhum módulo cria conexão por conta própria.
 3. **Erros de domínio são classes.** O serviço lança um erro de domínio com status sugerido. O middleware de erro traduz para a resposta. Erro não tratado vira 500 com mensagem genérica e log completo no servidor.
 4. **Serialização explícita.** A resposta é montada por um serializador que lista os campos públicos. Nunca se devolve a entidade inteira.
-5. **Rotas perigosas ficam registradas, mas protegidas.** Operações destrutivas ou administrativas ficam atrás de uma flag de configuração (desabilitada por default, responde 403) e de autenticação quando ela existir. Documente a decisão no README.
+5. **Rotas sem autenticação ficam registradas, mas protegidas.** Operações administrativas, leituras sensíveis e escritas ficam atrás das flags do T08 (desabilitadas por default, respondem 403; ligadas, exigem `X-Admin-Token`). Documente a decisão no README.
 6. **Contrato preservado.** Caminhos, métodos, códigos de status e nomes de campos da resposta não mudam, salvo as correções de segurança listadas na Fase 3.
 7. **Nomes externos x internos.** Se a API recebe campos com nomes abreviados, mantenha esses nomes na borda (controller ou serializer) e use nomes descritivos dentro das camadas.
 
@@ -70,4 +70,4 @@ O arquivo só registra. Qualquer `if` ou consulta nele é sinal de que a lógica
 - [ ] Controllers concentram o fluxo da aplicação (entrada → serviço → resposta), sem regra de domínio nem SQL
 - [ ] Erros são tratados por um handler central
 - [ ] Nenhuma entidade é devolvida inteira na resposta
-- [ ] Rotas destrutivas ou administrativas estão protegidas
+- [ ] Rotas administrativas, de leitura sensível e de escrita estão protegidas (T08)
