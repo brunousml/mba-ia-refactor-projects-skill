@@ -1,6 +1,6 @@
 ---
 name: validate-refactor
-description: Valida, sem alterar código, se a refatoração da Fase 3 da refactor-arch fechou todos os findings CRITICAL e HIGH do relatório de auditoria, se toda rota sem autenticação passou por um guard do T08 e se as únicas divergências do snapshot são as intencionais. Use ao final da Fase 3, antes do box de saída, ou quando o usuário pedir para validar, conferir ou checar pendências de uma refatoração.
+description: Valida, sem alterar código, se a refatoração tem testes escritos antes da mudança e todos verdes, da Fase 3 da refactor-arch fechou todos os findings CRITICAL e HIGH do relatório de auditoria, se toda rota sem autenticação passou por um guard do T08 e se as únicas divergências do snapshot são as intencionais. Use ao final da Fase 3, antes do box de saída, ou quando o usuário pedir para validar, conferir ou checar pendências de uma refatoração.
 argument-hint: "[caminho do relatório de auditoria]"
 allowed-tools: Read Grep Glob Bash
 ---
@@ -40,9 +40,14 @@ Se houver snapshot, suba a aplicação refatorada a partir do mesmo estado inici
 
 Compare status e estrutura do corpo (chaves e tipos), ignorando ids e timestamps. Pare a aplicação no fim. Sem snapshot, marque C3 como "não executada" e trate como pendência.
 
-### C4. Box de saída
+### C4. Testes (TDD)
+- Existe suíte em `tests/` cobrindo todas as rotas do inventário (caracterização) e cada correção que muda o contrato (comportamento novo).
+- A Fase 3 registrou a execução da suíte no código original **antes** da refatoração (caracterização verde, comportamento novo vermelho).
+- Rode a suíte agora: todos verdes. Pendente: rota sem teste, correção sem teste, teste vermelho, teste apagado ou afrouxado (`skip`, assert removido) sem registro em "Intentional changes".
+
+### C5. Box de saída
 - "Anti-patterns remaining" só pode ter MEDIUM ou LOW, cada um com motivo.
-- Os ✓ do box precisam bater com C1–C3.
+- Os ✓ do box precisam bater com C1–C4.
 
 ## Saída
 
@@ -53,7 +58,8 @@ VALIDATION PASSED | VALIDATION FAILED
 C1 CRITICAL/HIGH resolvidos   ✓|✗
 C2 Rotas protegidas (T08)      ✓|✗  (<N> rotas, <K> guardadas)
 C3 Comportamento               ✓|✗  (off: <D> divergências, <I> intencionais; on: <D2>)
-C4 Box coerente                ✓|✗
+C4 Testes                      ✓|✗  (<N> testes, <V> verdes; rotas cobertas <R>/<T>)
+C5 Box coerente                ✓|✗
 
 ## Pendências
 - [SEVERIDADE] <finding> — <arquivo:linha> — <o que falta>
@@ -61,4 +67,4 @@ C4 Box coerente                ✓|✗
 ================================
 ```
 
-`VALIDATION PASSED` só com C1–C4 em ✓. Qualquer pendência CRITICAL ou HIGH resulta em `VALIDATION FAILED`.
+`VALIDATION PASSED` só com C1–C5 em ✓. Qualquer pendência CRITICAL ou HIGH resulta em `VALIDATION FAILED`.

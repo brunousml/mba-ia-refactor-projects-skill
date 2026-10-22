@@ -2,7 +2,7 @@
 name: refactor-arch
 description: Audita e refatora um projeto de backend para a arquitetura MVC em três fases (análise da stack, auditoria com confirmação, refatoração com validação). Use quando o usuário pedir para auditar um projeto, revisar a arquitetura, achar anti-patterns ou code smells, refatorar para MVC ou validar um projeto legado. Funciona em qualquer linguagem ou framework de backend.
 argument-hint: "[caminho do relatório]"
-allowed-tools: Read Grep Glob Write Edit Bash
+allowed-tools: Read Grep Glob Write Edit Bash Agent
 ---
 
 # refactor-arch
@@ -21,7 +21,7 @@ Leia as referências só na fase que precisa delas:
 
 - Fase 1: `references/project-analysis.md`
 - Fase 2: `references/anti-patterns-catalog.md` e `references/audit-report-template.md`
-- Fase 3: `references/mvc-guidelines.md` e `references/refactoring-playbook.md`
+- Fase 3: `references/mvc-guidelines.md`, `references/testing-guidelines.md` e `references/refactoring-playbook.md`
 
 ## Fase 1: Análise
 
@@ -73,11 +73,23 @@ Só comece com confirmação explícita ("sim", "y", "prossiga"). Qualquer outra
 4. Chame cada rota do inventário com caso válido, de erro e de não encontrado. As rotas destrutivas (exclusão, reset, administração) ficam por último. Grave método, caminho, status e corpo no diretório de trabalho.
 5. Pare a aplicação e restaure o banco ou rode o seed de novo, para a validação começar do mesmo estado.
 
-### 3.2 Plano de estrutura
+### 3.2 Testes antes de refatorar (TDD)
+
+Os testes são a garantia de que a refatoração foi feita certo. Escreva-os **antes** de mudar qualquer linha do código de produção. Siga `references/testing-guidelines.md`.
+
+1. Use o framework de teste padrão da stack (veja `testing-guidelines.md`). Os testes ficam em `tests/` na raiz do projeto.
+2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Sem a ferramenta Agent, escreva você mesmo, domínio por domínio.
+3. Escreva dois tipos de teste:
+   - **caracterização** (verdes no original): todas as rotas pela interface HTTP (cliente de teste do framework), com caso válido, de erro e de não encontrado, e as regras de negócio observáveis (cálculos, descontos, estoque, contagens). Esses testes só usam a interface HTTP e o banco, para continuarem válidos depois que o código mudar de lugar.
+   - **comportamento novo** (vermelhos no original): um teste por correção de segurança ou validação que muda o contrato (403 com a flag desligada, 401 sem token, campo sensível removido, 400 no lugar de 500, senha com hash). São a especificação da Fase 3.
+4. Rode a suíte no código original. Toda caracterização precisa passar; todo teste de comportamento novo precisa falhar pelo motivo esperado. Grave a saída no diretório de trabalho e registre a contagem (verdes e vermelhos).
+5. Um teste de caracterização só pode mudar depois se o comportamento que ele cobre estiver em "Intentional changes"; nesse caso, ele vira teste de comportamento novo. Nunca apague ou afrouxe um teste para fazê-lo passar.
+
+### 3.3 Plano de estrutura
 
 Defina a estrutura alvo seguindo `mvc-guidelines.md` e adapte ao ponto de partida. Um monolito é dividido por domínio. Um projeto que já tem camadas recebe só o que falta. Liste no chat os arquivos que serão criados, movidos ou alterados antes de mexer.
 
-### 3.3 Refatoração
+### 3.4 Refatoração
 
 Siga a **ordem de aplicação** do final de `refactoring-playbook.md`:
 1. estrutura sem mudar lógica;
@@ -85,24 +97,25 @@ Siga a **ordem de aplicação** do final de `refactoring-playbook.md`:
 3. regra e erros;
 4. desempenho e limpeza.
 
-Dentro de cada grupo, trate os findings do relatório. Suba a aplicação depois de cada grupo. Adicione dependências só se forem indispensáveis, e registre no manifesto. Se a troca de hash invalidar senhas do seed, refaça o seed mantendo as mesmas senhas de exemplo.
+Dentro de cada grupo, trate os findings do relatório. Ao criar uma camada nova (serviço, model), escreva primeiro o teste unitário dela (vermelho) e depois o código (verde). Depois de cada grupo, suba a aplicação e **rode a suíte inteira**; não comece o grupo seguinte com teste de caracterização vermelho. Adicione dependências só se forem indispensáveis, e registre no manifesto. Se a troca de hash invalidar senhas do seed, refaça o seed mantendo as mesmas senhas de exemplo.
 
-### 3.4 Validação
+### 3.5 Validação
 
-1. Restaure o estado inicial do banco (como no passo 5 do snapshot) e suba a aplicação refatorada. O boot precisa terminar sem erro.
+1. Restaure o estado inicial do banco (como no passo 5 da 3.1) e suba a aplicação refatorada. O boot precisa terminar sem erro.
 2. Chame as mesmas rotas, com os mesmos dados e na mesma ordem do snapshot.
 3. Compare status e estrutura do corpo (chaves e tipos), ignorando ids e timestamps.
 4. Rotas protegidas por flag (T08): valide com as flags desligadas (403 esperado) e com `ENABLE_ADMIN_ROUTES`, `ENABLE_SENSITIVE_READS`, `ENABLE_WRITE_ROUTES` ligadas e `X-Admin-Token` (comportamento original).
 5. Corrija toda divergência não intencional. Liste as intencionais.
-6. Confira de novo os findings do relatório no código novo.
+6. Rode a suíte inteira: todos os testes precisam passar, inclusive os de comportamento novo. Registre a contagem final.
+7. Confira de novo os findings do relatório no código novo.
 
-### 3.5 Pendências (obrigatório)
+### 3.6 Pendências (obrigatório)
 
-1. Monte a lista de pendências: findings CRITICAL ou HIGH do relatório ainda presentes no código novo, divergências não intencionais e itens ✗ do checklist MVC.
-2. Se a lista tiver qualquer CRITICAL ou HIGH, volte ao playbook, aplique a transformação e repita a 3.4. Se nenhuma transformação resolver sem quebrar o contrato, **pare** e peça a decisão ao usuário, mostrando a lista. Nunca feche a Fase 3 com CRITICAL ou HIGH pendente.
+1. Monte a lista de pendências: findings CRITICAL ou HIGH do relatório ainda presentes no código novo, divergências não intencionais, testes vermelhos e itens ✗ do checklist MVC.
+2. Se a lista tiver qualquer CRITICAL ou HIGH, volte ao playbook, aplique a transformação e repita a 3.5. Se nenhuma transformação resolver sem quebrar o contrato, **pare** e peça a decisão ao usuário, mostrando a lista. Nunca feche a Fase 3 com CRITICAL ou HIGH pendente.
 3. Rode a skill `validate-refactor` (em `.claude/skills/validate-refactor/`) passando o caminho do relatório. Só siga para a saída com `VALIDATION PASSED`. Com `VALIDATION FAILED`, trate cada pendência listada e repita este passo.
 
-### 3.6 Saída
+### 3.7 Saída
 
 ```
 ================================
@@ -114,6 +127,7 @@ PHASE 3: REFACTORING COMPLETE
 ## Validation
   ✓|✗ Application boots without errors
   ✓|✗ All endpoints respond correctly (<N>/<total> iguais ao snapshot, <K> mudanças intencionais)
+  ✓|✗ Tests written before refactor: <N> (<C> caracterização, <B> comportamento novo); antes <V> verdes / <R> vermelhos; depois <N>/<N> verdes
   ✓|✗ Zero CRITICAL/HIGH remaining (validate-refactor: PASSED)
 
 ## MVC checklist
