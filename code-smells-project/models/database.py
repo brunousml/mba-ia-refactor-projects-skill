@@ -1,8 +1,12 @@
+"""Banco SQLite: abertura de conexões, schema e seed."""
+import logging
 import sqlite3
 
 from utils.senha import eh_hash, gerar_hash
 
-SCHEMA = (
+logger = logging.getLogger(__name__)
+
+SCHEMA = [
     """
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +47,7 @@ SCHEMA = (
         preco_unitario REAL
     )
     """,
-)
+]
 
 PRODUTOS_SEED = [
     ("Notebook Gamer", "Notebook potente para jogos", 5999.99, 10, "informatica"),
@@ -58,7 +62,7 @@ PRODUTOS_SEED = [
     ("Camiseta Dev", "Camiseta estampa código", 59.90, 100, "vestuario"),
 ]
 
-# Mesmas senhas de exemplo do seed original; gravadas como hash na criação.
+# Senhas de exemplo do seed original; gravadas só como hash.
 USUARIOS_SEED = [
     ("Admin", "admin@loja.com", "admin123", "admin"),
     ("João Silva", "joao@email.com", "123456", "cliente"),
@@ -67,8 +71,6 @@ USUARIOS_SEED = [
 
 
 class Banco:
-    """Criado uma vez no entry point; cada requisição abre e fecha a própria conexão."""
-
     def __init__(self, caminho):
         self._caminho = caminho
 
@@ -91,14 +93,15 @@ class Banco:
                     "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)",
                     [(nome, email, gerar_hash(senha), tipo) for nome, email, senha, tipo in USUARIOS_SEED],
                 )
-            _migrar_senhas_em_texto(conn)
+            self._migrar_senhas_em_texto(conn)
             conn.commit()
         finally:
             conn.close()
 
-
-def _migrar_senhas_em_texto(conn):
-    """Bancos criados pela versão anterior guardam senha em texto; converte para hash no boot."""
-    legadas = [row for row in conn.execute("SELECT id, senha FROM usuarios") if not eh_hash(row["senha"])]
-    for row in legadas:
-        conn.execute("UPDATE usuarios SET senha = ? WHERE id = ?", (gerar_hash(row["senha"] or ""), row["id"]))
+    @staticmethod
+    def _migrar_senhas_em_texto(conn):
+        """Bancos criados pela versão antiga guardam senha em texto puro."""
+        for linha in conn.execute("SELECT id, senha FROM usuarios").fetchall():
+            if linha["senha"] is not None and not eh_hash(linha["senha"]):
+                conn.execute("UPDATE usuarios SET senha = ? WHERE id = ?", (gerar_hash(linha["senha"]), linha["id"]))
+                logger.info("Senha migrada para hash: usuario_id=%s", linha["id"])

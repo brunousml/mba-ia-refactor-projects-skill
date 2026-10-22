@@ -1,13 +1,13 @@
-def usuario_publico(usuario):
+def usuario_publico(linha):
     """Sem o campo senha."""
     return {
-        "id": usuario["id"],
-        "nome": usuario["nome"],
-        "email": usuario["email"],
-        "tipo": usuario["tipo"],
-        "criado_em": usuario["criado_em"],
+        "id": linha["id"],
+        "nome": linha["nome"],
+        "email": linha["email"],
+        "tipo": linha["tipo"],
+        "criado_em": linha["criado_em"],
     }
 
 
-def usuario_login(usuario):
-    return {"id": usuario["id"], "nome": usuario["nome"], "email": usuario["email"], "tipo": usuario["tipo"]}
+def usuario_autenticado(linha):
+    return {"id": linha["id"], "nome": linha["nome"], "email": linha["email"], "tipo": linha["tipo"]}

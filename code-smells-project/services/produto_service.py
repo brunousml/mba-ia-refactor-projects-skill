@@ -1,20 +1,25 @@
+"""Regras de produto: validação única para criar e atualizar (T16)."""
 import logging
 
 from config.regras import CATEGORIA_PADRAO, CATEGORIAS_VALIDAS, NOME_PRODUTO_MAX, NOME_PRODUTO_MIN
 from models import produto_model
+from serializers.produto_serializer import produto_publico
 from services.erros import ErroDeNegocio
 from utils.tipos import eh_inteiro, eh_numero
 
 logger = logging.getLogger(__name__)
 
-CAMPOS_OBRIGATORIOS = (("nome", "Nome"), ("preco", "Preço"), ("estoque", "Estoque"))
 
-
-def validar_produto(dados):
-    """Regra única de produto, usada na criação e na atualização."""
-    for campo, rotulo in CAMPOS_OBRIGATORIOS:
-        if campo not in dados:
-            raise ErroDeNegocio(f"{rotulo} é obrigatório")
+def validar_dados_produto(dados):
+    """Devolve (nome, descricao, preco, estoque, categoria) ou lança ErroDeNegocio."""
+    if not dados:
+        raise ErroDeNegocio("Dados inválidos")
+    if "nome" not in dados:
+        raise ErroDeNegocio("Nome é obrigatório")
+    if "preco" not in dados:
+        raise ErroDeNegocio("Preço é obrigatório")
+    if "estoque" not in dados:
+        raise ErroDeNegocio("Estoque é obrigatório")
 
     nome = dados["nome"]
     descricao = dados.get("descricao", "")
@@ -29,7 +34,7 @@ def validar_produto(dados):
     if not eh_numero(preco):
         raise ErroDeNegocio("Preço deve ser numérico")
     if not eh_inteiro(estoque):
-        raise ErroDeNegocio("Estoque deve ser um número inteiro")
+        raise ErroDeNegocio("Estoque deve ser inteiro")
     if preco < 0:
         raise ErroDeNegocio("Preço não pode ser negativo")
     if estoque < 0:
@@ -40,43 +45,40 @@ def validar_produto(dados):
         raise ErroDeNegocio("Nome muito longo")
     if categoria not in CATEGORIAS_VALIDAS:
         raise ErroDeNegocio("Categoria inválida. Válidas: " + str(CATEGORIAS_VALIDAS))
-
-    return {"nome": nome, "descricao": descricao, "preco": preco, "estoque": estoque, "categoria": categoria}
+    return nome, descricao, preco, estoque, categoria
 
 
 def listar(conn):
-    return produto_model.listar(conn)
+    return [produto_publico(p) for p in produto_model.listar(conn)]
 
 
-def obter(conn, produto_id, sucesso_no_erro=None):
+def buscar(conn, produto_id):
     produto = produto_model.buscar_por_id(conn, produto_id)
     if produto is None:
-        raise ErroDeNegocio("Produto não encontrado", 404, sucesso=sucesso_no_erro)
-    return produto
+        raise ErroDeNegocio("Produto não encontrado", 404, com_sucesso=True)
+    return produto_publico(produto)
 
 
-def buscar(conn, termo, categoria, preco_min, preco_max):
-    return produto_model.buscar(conn, termo, categoria, preco_min, preco_max)
+def pesquisar(conn, termo, categoria, preco_min, preco_max):
+    return [produto_publico(p) for p in produto_model.pesquisar(conn, termo, categoria, preco_min, preco_max)]
 
 
 def criar(conn, dados):
-    produto = validar_produto(dados)
-    produto_id = produto_model.criar(conn, **produto)
-    conn.commit()
-    logger.info("Produto criado: produto_id=%s", produto_id)
+    campos = validar_dados_produto(dados)
+    produto_id = produto_model.criar(conn, *campos)
+    logger.info("Produto criado: id=%s", produto_id)
     return produto_id
 
 
 def atualizar(conn, produto_id, dados):
-    obter(conn, produto_id)
-    if not dados:
-        raise ErroDeNegocio("Dados inválidos")
-    produto_model.atualizar(conn, produto_id, **validar_produto(dados))
-    conn.commit()
+    if produto_model.buscar_por_id(conn, produto_id) is None:
+        raise ErroDeNegocio("Produto não encontrado", 404)
+    campos = validar_dados_produto(dados)
+    produto_model.atualizar(conn, produto_id, *campos)
 
 
 def deletar(conn, produto_id):
-    obter(conn, produto_id)
+    if produto_model.buscar_por_id(conn, produto_id) is None:
+        raise ErroDeNegocio("Produto não encontrado", 404)
     produto_model.deletar(conn, produto_id)
-    conn.commit()
-    logger.info("Produto deletado: produto_id=%s", produto_id)
+    logger.info("Produto deletado: id=%s", produto_id)

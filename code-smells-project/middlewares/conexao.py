@@ -1,17 +1,30 @@
-from flask import current_app, g
+"""T07: uma conexão por requisição, com commit no sucesso e rollback no erro."""
+from flask import g
 
 
-def registrar(app, banco):
-    app.extensions["banco"] = banco
-
-    @app.teardown_appcontext
-    def fechar_conexao(_erro=None):
-        conn = g.pop("conn", None)
-        if conn is not None:
-            conn.close()   # o que não foi confirmado pelo serviço é descartado
-
-
-def conexao_da_requisicao():
-    if "conn" not in g:
-        g.conn = current_app.extensions["banco"].abrir()
+def conexao_atual():
     return g.conn
+
+
+def desfazer_requisicao():
+    conn = g.pop("conn", None)
+    if conn is not None:
+        conn.rollback()
+        conn.close()
+
+
+def registrar_conexao(app, banco):
+    @app.before_request
+    def abrir_conexao():
+        g.conn = banco.abrir()
+
+    @app.teardown_request
+    def fechar_conexao(erro=None):
+        conn = g.pop("conn", None)
+        if conn is None:
+            return
+        if erro is None:
+            conn.commit()
+        else:
+            conn.rollback()
+        conn.close()

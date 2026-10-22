@@ -1,11 +1,16 @@
-def resetar_banco(conn):
-    for tabela in ("itens_pedido", "pedidos", "produtos", "usuarios"):
-        conn.execute(f"DELETE FROM {tabela}")   # seguro: nomes vêm da tupla fixa
+"""Operações administrativas sobre o banco (expostas só atrás do guard de admin)."""
+
+TABELAS_NA_ORDEM_DE_LIMPEZA = ["itens_pedido", "pedidos", "produtos", "usuarios"]
 
 
-def executar_sql(conn, query):
-    """SQL livre de administração: só alcançável atrás do guard de admin (flag + token)."""
-    cursor = conn.execute(query)
-    if query.strip().upper().startswith("SELECT"):
-        return [dict(row) for row in cursor.fetchall()]
+def limpar_tabelas(conn):
+    for tabela in TABELAS_NA_ORDEM_DE_LIMPEZA:
+        conn.execute(f"DELETE FROM {tabela}")  # nome vem da lista fixa acima
+
+
+def executar_sql(conn, sql):
+    """Executa o SQL recebido. Devolve as linhas se for SELECT, senão None."""
+    cursor = conn.execute(sql)
+    if sql.strip().upper().startswith("SELECT"):
+        return [dict(linha) for linha in cursor.fetchall()]
     return None

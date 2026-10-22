@@ -1,10 +1,22 @@
+"""Acesso a dados de produtos."""
+
+COLUNAS = "id, nome, descricao, preco, estoque, categoria, ativo, criado_em"
+
+
 def listar(conn):
-    return [dict(row) for row in conn.execute("SELECT * FROM produtos")]
+    return conn.execute(f"SELECT {COLUNAS} FROM produtos").fetchall()
 
 
 def buscar_por_id(conn, produto_id):
-    row = conn.execute("SELECT * FROM produtos WHERE id = ?", (produto_id,)).fetchone()
-    return dict(row) if row else None
+    return conn.execute(f"SELECT {COLUNAS} FROM produtos WHERE id = ?", (produto_id,)).fetchone()
+
+
+def buscar_por_ids(conn, ids):
+    if not ids:
+        return {}
+    marcadores = ",".join("?" * len(ids))  # só "?" gerados; nenhuma entrada do cliente
+    linhas = conn.execute(f"SELECT {COLUNAS} FROM produtos WHERE id IN ({marcadores})", list(ids)).fetchall()
+    return {linha["id"]: linha for linha in linhas}
 
 
 def criar(conn, nome, descricao, preco, estoque, categoria):
@@ -26,22 +38,28 @@ def deletar(conn, produto_id):
     conn.execute("DELETE FROM produtos WHERE id = ?", (produto_id,))
 
 
-def buscar(conn, termo, categoria=None, preco_min=None, preco_max=None):
-    query = "SELECT * FROM produtos WHERE 1=1"
-    params = []
+def baixar_estoque(conn, produto_id, quantidade):
+    conn.execute("UPDATE produtos SET estoque = estoque - ? WHERE id = ?", (quantidade, produto_id))
+
+
+def pesquisar(conn, termo=None, categoria=None, preco_min=None, preco_max=None):
+    condicoes, params = [], []
     if termo:
-        query += " AND (nome LIKE ? OR descricao LIKE ?)"
+        condicoes.append("(nome LIKE ? OR descricao LIKE ?)")
         params += [f"%{termo}%", f"%{termo}%"]
     if categoria:
-        query += " AND categoria = ?"
+        condicoes.append("categoria = ?")
         params.append(categoria)
     if preco_min:
-        query += " AND preco >= ?"
+        condicoes.append("preco >= ?")
         params.append(preco_min)
     if preco_max:
-        query += " AND preco <= ?"
+        condicoes.append("preco <= ?")
         params.append(preco_max)
-    return [dict(row) for row in conn.execute(query, params)]
+    sql = f"SELECT {COLUNAS} FROM produtos WHERE 1=1"
+    for condicao in condicoes:
+        sql += " AND " + condicao  # condições fixas do código; valores vão em params
+    return conn.execute(sql, params).fetchall()
 
 
 def contar(conn):

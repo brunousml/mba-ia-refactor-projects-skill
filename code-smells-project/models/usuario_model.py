@@ -1,18 +1,21 @@
+"""Acesso a dados de usuários."""
+
+COLUNAS = "id, nome, email, senha, tipo, criado_em"
+
+
 def listar(conn):
-    return [dict(row) for row in conn.execute("SELECT * FROM usuarios")]
+    return conn.execute(f"SELECT {COLUNAS} FROM usuarios").fetchall()
 
 
 def buscar_por_id(conn, usuario_id):
-    row = conn.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
-    return dict(row) if row else None
+    return conn.execute(f"SELECT {COLUNAS} FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
 
 
 def buscar_por_email(conn, email):
-    row = conn.execute("SELECT * FROM usuarios WHERE email = ?", (email,)).fetchone()
-    return dict(row) if row else None
+    return conn.execute(f"SELECT {COLUNAS} FROM usuarios WHERE email = ? ORDER BY id", (email,)).fetchone()
 
 
-def criar(conn, nome, email, senha_hash, tipo="cliente"):
+def criar(conn, nome, email, senha_hash, tipo):
     cursor = conn.execute(
         "INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)",
         (nome, email, senha_hash, tipo),

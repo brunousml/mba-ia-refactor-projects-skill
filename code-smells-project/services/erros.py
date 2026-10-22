@@ -1,7 +1,15 @@
-class ErroDeNegocio(Exception):
-    """Erro de domínio com status sugerido. `sucesso` só entra no corpo quando a rota original o devolvia."""
+"""Erro de domínio: o serviço lança, o middleware de erro traduz para a resposta."""
 
-    def __init__(self, mensagem, status=400, sucesso=None):
+
+class ErroDeNegocio(Exception):
+    def __init__(self, mensagem, status=400, com_sucesso=False):
         super().__init__(mensagem)
+        self.mensagem = mensagem
         self.status = status
-        self.sucesso = sucesso
+        self.com_sucesso = com_sucesso  # algumas respostas originais trazem "sucesso": false
+
+    def corpo(self):
+        corpo = {"erro": self.mensagem}
+        if self.com_sucesso:
+            corpo["sucesso"] = False
+        return corpo

@@ -4,7 +4,3 @@ def eh_numero(valor):
 
 def eh_inteiro(valor):
     return isinstance(valor, int) and not isinstance(valor, bool)
-
-
-def eh_texto_preenchido(valor):
-    return isinstance(valor, str) and valor != ""

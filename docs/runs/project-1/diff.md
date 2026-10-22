@@ -1,8 +1,27 @@
 [FORMATO] health: estrutura do corpo mudou
-[STATUS] produtos-criar-400-sem-body: 500 -> 400
-[FORMATO] usuarios-listar: estrutura do corpo mudou
-[FORMATO] usuarios-detalhe-ok: estrutura do corpo mudou
+[STATUS] produtos-criar-ok: 201 -> 403
+[STATUS] produtos-criar-400-nome-curto: 400 -> 403
+[STATUS] produtos-criar-400-categoria: 400 -> 403
+[STATUS] produtos-criar-400-sem-body: 500 -> 403
+[STATUS] produtos-atualizar-ok: 200 -> 403
+[STATUS] produtos-atualizar-404: 404 -> 403
+[STATUS] produtos-atualizar-400-preco: 400 -> 403
+[STATUS] usuarios-listar: 200 -> 403
+[STATUS] usuarios-detalhe-ok: 200 -> 403
+[STATUS] usuarios-detalhe-404: 404 -> 403
+[STATUS] usuarios-criar-ok: 201 -> 403
+[STATUS] usuarios-criar-400: 400 -> 403
+[STATUS] pedidos-criar-ok: 201 -> 403
+[STATUS] pedidos-criar-400-sem-itens: 400 -> 403
+[STATUS] pedidos-criar-400-estoque: 400 -> 403
+[STATUS] pedidos-listar: 200 -> 403
+[STATUS] pedidos-usuario: 200 -> 403
+[STATUS] pedidos-status-ok: 200 -> 403
+[STATUS] pedidos-status-400: 400 -> 403
+[STATUS] relatorio-vendas: 200 -> 403
+[STATUS] produtos-deletar-ok: 200 -> 403
+[STATUS] produtos-deletar-404: 404 -> 403
 [STATUS] admin-query-select: 200 -> 403
 [STATUS] admin-query-400: 400 -> 403
 [STATUS] admin-reset-db: 200 -> 403
-35 chamadas comparadas, 7 divergências
+35 chamadas comparadas, 26 divergências
