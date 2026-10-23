@@ -16,6 +16,7 @@ Analise o projeto do diretório atual, audite e, só depois de confirmação exp
 3. A stack vem dos arquivos do projeto (manifestos, imports, comando de boot), nunca de suposição.
 4. Não invente rotas, tabelas ou findings. Se algo não existe, diga isso.
 5. Preserve o comportamento externo: método, caminho, status, formato da resposta e porta padrão. Mudança de comportamento só nas correções de segurança e de validação, e cada uma é listada.
+6. **Subagentes:** use `model: "sonnet"` em tarefas diretas e bem especificadas (escrever testes, rodar suítes, varrer arquivos). Use o modelo mais capaz só onde há julgamento ou raciocínio de segurança.
 
 Leia as referências só na fase que precisa delas:
 
@@ -78,7 +79,7 @@ Só comece com confirmação explícita ("sim", "y", "prossiga"). Qualquer outra
 Os testes são a garantia de que a refatoração foi feita certo. Escreva-os **antes** de mudar qualquer linha do código de produção. Siga `references/testing-guidelines.md`.
 
 1. Use o framework de teste padrão da stack (veja `testing-guidelines.md`). Os testes ficam em `tests/` na raiz do projeto.
-2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Declare no chat quantos subagentes usou e para quais domínios. Só escreva os testes você mesmo se a ferramenta Agent não estiver disponível nesta sessão, e diga isso no chat. **Espere todos os subagentes terminarem** antes do passo 4: nenhum arquivo de produção é criado ou alterado enquanto houver subagente de teste rodando.
+2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Lance cada um com `model: "sonnet"`: escrever testes a partir de uma especificação clara é tarefa direta e não precisa do modelo mais caro. Reserve o modelo mais capaz para decisões que exigem julgamento (classificar severidade, desenhar a estrutura alvo, resolver divergência inesperada). Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Declare no chat quantos subagentes usou e para quais domínios. Só escreva os testes você mesmo se a ferramenta Agent não estiver disponível nesta sessão, e diga isso no chat. **Espere todos os subagentes terminarem** antes do passo 4: nenhum arquivo de produção é criado ou alterado enquanto houver subagente de teste rodando.
 3. Escreva dois tipos de teste:
    - **caracterização** (verdes no original): todas as rotas pela interface HTTP (cliente de teste do framework), com caso válido, de erro e de não encontrado, e as regras de negócio observáveis (cálculos, descontos, estoque, contagens). Esses testes só usam a interface HTTP e o banco, para continuarem válidos depois que o código mudar de lugar.
    - **comportamento novo** (vermelhos no original): um teste por correção de segurança ou validação que muda o contrato (403 com a flag desligada, 401 sem token, campo sensível removido, 400 no lugar de 500, senha com hash). São a especificação da Fase 3.
