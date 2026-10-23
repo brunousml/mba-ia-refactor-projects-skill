@@ -1,4 +1,4 @@
-"""T08: guards por flag. Flag desligada → 403; ligada sem X-Admin-Token válido → 401."""
+"""Guards de acesso por flag (T08). Flag desligada: 403. Ligada sem token certo: 401."""
 import hmac
 from functools import wraps
 
@@ -17,7 +17,9 @@ def exigir_flag(nome_flag):
             if not settings.ADMIN_TOKEN or not hmac.compare_digest(token.encode(), settings.ADMIN_TOKEN.encode()):
                 return jsonify({"erro": "Não autorizado"}), 401
             return handler(*args, **kwargs)
+
         return envolvido
+
     return decorador
 
 

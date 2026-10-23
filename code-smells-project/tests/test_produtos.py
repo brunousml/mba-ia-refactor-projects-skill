@@ -1,228 +1,241 @@
-"""Testes do domínio PRODUTOS: caracterização do contrato original + comportamento novo."""
+"""Testes do domínio /produtos.
+
+Bloco A: caracterização do comportamento original (passa antes e depois da refatoração).
+Bloco B: comportamento novo (guards por flag/token e correções); falha no original.
+"""
 import pytest
 
-NOVO = {"nome": "Livro Python", "descricao": "Livro de programação", "preco": 120.5,
-        "estoque": 7, "categoria": "livros"}
+CORPO_VALIDO = {
+    "nome": "Cadeira Ergonômica",
+    "descricao": "Cadeira de escritório",
+    "preco": 899.9,
+    "estoque": 7,
+    "categoria": "moveis",
+}
 
 
-# ---------------------------------------------------------------- caracterização
-
-def test_listar_produtos_devolve_seed(client):
-    r = client.get("/produtos")
-    assert r.status_code == 200
-    corpo = r.get_json()
-    assert corpo["sucesso"] is True
-    assert len(corpo["dados"]) == 10
-    nomes = {p["nome"] for p in corpo["dados"]}
-    assert {"Notebook Gamer", "Cadeira Gamer"} <= nomes
+def corpo(**mudancas):
+    novo = dict(CORPO_VALIDO)
+    novo.update(mudancas)
+    return novo
 
 
-def test_listar_e_buscar_sao_publicos_sem_flags(make_client):
-    c = make_client()
-    assert c.get("/produtos").status_code == 200
-    assert c.get("/produtos/busca?q=Gamer").status_code == 200
+def corpo_sem(campo):
+    novo = dict(CORPO_VALIDO)
+    novo.pop(campo)
+    return novo
 
 
-def test_buscar_produto_por_id_devolve_campos(client):
-    r = client.get("/produtos/1")
-    assert r.status_code == 200
-    corpo = r.get_json()
-    assert corpo["sucesso"] is True
-    p = corpo["dados"]
-    assert p["nome"] == "Notebook Gamer"
-    assert p["preco"] == 5999.99
-    assert p["estoque"] == 10
-    assert p["categoria"] == "informatica"
-    assert {"id", "descricao", "ativo", "criado_em"} <= set(p)
+def criar(cliente, **mudancas):
+    resposta = cliente.post("/produtos", json=corpo(**mudancas))
+    assert resposta.status_code == 201
+    return resposta.get_json()["dados"]["id"]
 
 
-def test_buscar_produto_inexistente_devolve_404(client):
-    r = client.get("/produtos/999")
-    assert r.status_code == 404
-    corpo = r.get_json()
-    assert "erro" in corpo
-    assert corpo["sucesso"] is False
+# ---------------------------------------------------------------- A) caracterização
 
 
-def test_busca_filtra_por_termo(client):
-    r = client.get("/produtos/busca?q=Gamer")
-    assert r.status_code == 200
-    corpo = r.get_json()
-    assert corpo["sucesso"] is True
-    assert corpo["total"] == 3
-    assert {p["nome"] for p in corpo["dados"]} == {"Notebook Gamer", "Headset Gamer", "Cadeira Gamer"}
+def test_listar_produtos_retorna_10_itens(cliente):
+    resposta = cliente.get("/produtos")
+    json = resposta.get_json()
+    assert resposta.status_code == 200
+    assert json["sucesso"] is True
+    assert isinstance(json["dados"], list)
+    assert len(json["dados"]) == 10
 
 
-def test_busca_filtra_por_categoria(client):
-    corpo = client.get("/produtos/busca?categoria=moveis").get_json()
-    assert corpo["total"] == 1
-    assert corpo["dados"][0]["nome"] == "Cadeira Gamer"
+def test_buscar_produto_por_id_retorna_notebook_gamer(cliente):
+    resposta = cliente.get("/produtos/1")
+    assert resposta.status_code == 200
+    assert resposta.get_json()["dados"]["nome"] == "Notebook Gamer"
 
 
-def test_busca_filtra_por_faixa_de_preco(client):
-    corpo = client.get("/produtos/busca?preco_min=1000&preco_max=2000").get_json()
-    assert {p["nome"] for p in corpo["dados"]} == {"Monitor 27''", "Cadeira Gamer"}
-    assert corpo["total"] == 2
+def test_buscar_produto_inexistente_retorna_404(cliente):
+    resposta = cliente.get("/produtos/999")
+    assert resposta.status_code == 404
+    assert resposta.get_json()["erro"] == "Produto não encontrado"
 
 
-def test_busca_sem_resultado_devolve_total_zero(client):
-    corpo = client.get("/produtos/busca?q=inexistentexyz").get_json()
-    assert corpo["total"] == 0
-    assert corpo["dados"] == []
+def test_busca_por_texto_mouse_retorna_um_resultado(cliente):
+    resposta = cliente.get("/produtos/busca?q=Mouse")
+    json = resposta.get_json()
+    assert resposta.status_code == 200
+    assert json["total"] == 1
+    assert json["dados"][0]["nome"] == "Mouse Wireless"
 
 
-def test_criar_produto_e_buscar_devolve_campos(client):
-    r = client.post("/produtos", json=NOVO)
-    assert r.status_code == 201
-    corpo = r.get_json()
-    assert corpo["sucesso"] is True
-    assert "mensagem" in corpo
-    novo_id = corpo["dados"]["id"]
-    p = client.get(f"/produtos/{novo_id}").get_json()["dados"]
-    for campo in ("nome", "descricao", "preco", "estoque", "categoria"):
-        assert p[campo] == NOVO[campo]
+def test_busca_por_categoria_e_faixa_de_preco_filtra_itens(cliente):
+    resposta = cliente.get("/produtos/busca?categoria=informatica&preco_min=100&preco_max=2000")
+    json = resposta.get_json()
+    assert resposta.status_code == 200
+    assert json["dados"]
+    for item in json["dados"]:
+        assert item["categoria"] == "informatica"
+        assert 100 <= item["preco"] <= 2000
 
 
-def test_criar_produto_sem_categoria_usa_geral(client):
-    dados = {k: v for k, v in NOVO.items() if k != "categoria"}
-    novo_id = client.post("/produtos", json=dados).get_json()["dados"]["id"]
-    assert client.get(f"/produtos/{novo_id}").get_json()["dados"]["categoria"] == "geral"
+def test_criar_produto_valido_retorna_201_e_pode_ser_lido(cliente):
+    resposta = cliente.post("/produtos", json=corpo())
+    json = resposta.get_json()
+    assert resposta.status_code == 201
+    assert isinstance(json["dados"]["id"], int)
+    assert json["mensagem"] == "Produto criado"
+    lido = cliente.get(f"/produtos/{json['dados']['id']}")
+    assert lido.status_code == 200
+    assert lido.get_json()["dados"]["nome"] == CORPO_VALIDO["nome"]
 
 
-@pytest.mark.parametrize("faltando", ["nome", "preco", "estoque"])
-def test_criar_produto_sem_campo_obrigatorio_devolve_400(client, faltando):
-    dados = {k: v for k, v in NOVO.items() if k != faltando}
-    r = client.post("/produtos", json=dados)
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
+def test_criar_produto_sem_nome_retorna_400(cliente):
+    resposta = cliente.post("/produtos", json=corpo_sem("nome"))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Nome é obrigatório"
 
 
-@pytest.mark.parametrize("campo,valor", [
-    ("preco", -1), ("estoque", -1), ("nome", "A"), ("nome", "x" * 201), ("categoria", "brinquedos"),
-])
-def test_criar_produto_invalido_devolve_400(client, campo, valor):
-    r = client.post("/produtos", json={**NOVO, campo: valor})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
-    assert len(client.get("/produtos").get_json()["dados"]) == 10
+def test_criar_produto_com_preco_negativo_retorna_400(cliente):
+    resposta = cliente.post("/produtos", json=corpo(preco=-1))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Preço não pode ser negativo"
 
 
-def test_atualizar_produto_altera_campos(client):
-    dados = {**NOVO, "nome": "Notebook Atualizado"}
-    r = client.put("/produtos/1", json=dados)
-    assert r.status_code == 200
-    corpo = r.get_json()
-    assert corpo["sucesso"] is True
-    assert "mensagem" in corpo
-    p = client.get("/produtos/1").get_json()["dados"]
-    assert p["nome"] == "Notebook Atualizado"
-    assert p["preco"] == NOVO["preco"]
-    assert p["categoria"] == "livros"
+def test_criar_produto_com_nome_de_um_caractere_retorna_400(cliente):
+    resposta = cliente.post("/produtos", json=corpo(nome="A"))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Nome muito curto"
 
 
-def test_atualizar_produto_inexistente_devolve_404(client):
-    r = client.put("/produtos/999", json=NOVO)
-    assert r.status_code == 404
-    assert "erro" in r.get_json()
+def test_criar_produto_com_categoria_invalida_retorna_400(cliente):
+    resposta = cliente.post("/produtos", json=corpo(categoria="xyz"))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"].startswith("Categoria inválida")
 
 
-@pytest.mark.parametrize("campo,valor", [("preco", -1), ("estoque", -5)])
-def test_atualizar_produto_com_negativo_devolve_400(client, campo, valor):
-    r = client.put("/produtos/1", json={**NOVO, campo: valor})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
-    assert client.get("/produtos/1").get_json()["dados"]["nome"] == "Notebook Gamer"
+def test_atualizar_produto_valido_reflete_novo_nome(cliente):
+    id_ = criar(cliente)
+    resposta = cliente.put(f"/produtos/{id_}", json=corpo(nome="Cadeira Nova"))
+    assert resposta.status_code == 200
+    assert cliente.get(f"/produtos/{id_}").get_json()["dados"]["nome"] == "Cadeira Nova"
 
 
-def test_atualizar_produto_sem_campo_obrigatorio_devolve_400(client):
-    r = client.put("/produtos/1", json={"nome": "Sem preco"})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
+def test_atualizar_produto_inexistente_retorna_404(cliente):
+    resposta = cliente.put("/produtos/999", json=corpo())
+    assert resposta.status_code == 404
 
 
-def test_deletar_produto_remove(client, query_db):
-    r = client.delete("/produtos/10")
-    assert r.status_code == 200
-    corpo = r.get_json()
-    assert corpo["sucesso"] is True
-    assert "mensagem" in corpo
-    assert client.get("/produtos/10").status_code == 404
-    assert query_db("SELECT COUNT(*) AS n FROM produtos WHERE id = 10")[0]["n"] == 0
+def test_atualizar_produto_sem_preco_retorna_400(cliente):
+    id_ = criar(cliente)
+    resposta = cliente.put(f"/produtos/{id_}", json=corpo_sem("preco"))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Preço é obrigatório"
 
 
-def test_deletar_produto_inexistente_devolve_404(client):
-    r = client.delete("/produtos/999")
-    assert r.status_code == 404
-    assert "erro" in r.get_json()
+def test_deletar_produto_valido_retorna_200_e_depois_404(cliente):
+    id_ = criar(cliente)
+    resposta = cliente.delete(f"/produtos/{id_}")
+    assert resposta.status_code == 200
+    assert resposta.get_json()["mensagem"] == "Produto deletado"
+    assert cliente.get(f"/produtos/{id_}").status_code == 404
 
 
-# ---------------------------------------------------------------- comportamento novo
-
-ESCRITAS = [
-    ("post", "/produtos", NOVO),
-    ("put", "/produtos/1", NOVO),
-    ("delete", "/produtos/1", None),
-]
+def test_deletar_produto_inexistente_retorna_404(cliente):
+    assert cliente.delete("/produtos/999").status_code == 404
 
 
-@pytest.mark.parametrize("metodo,url,corpo", ESCRITAS)
-def test_escrita_de_produto_sem_flag_devolve_403(make_client, query_db, metodo, url, corpo):
-    # comportamento novo
-    c = make_client()
-    r = getattr(c, metodo)(url, json=corpo) if corpo else getattr(c, metodo)(url)
-    assert r.status_code == 403
-    assert query_db("SELECT nome FROM produtos WHERE id = 1")[0]["nome"] == "Notebook Gamer"
+@pytest.mark.parametrize("caminho", ["/produtos", "/produtos/1"])
+def test_leitura_de_produtos_e_publica_sem_flags(cliente_sem_flags, caminho):
+    assert cliente_sem_flags.get(caminho).status_code == 200
 
 
-@pytest.mark.parametrize("metodo,url,corpo", ESCRITAS)
-def test_escrita_de_produto_sem_token_devolve_401(make_client, metodo, url, corpo):
-    # comportamento novo
-    c = make_client(flags=True, enviar_token=False)
-    r = getattr(c, metodo)(url, json=corpo) if corpo else getattr(c, metodo)(url)
-    assert r.status_code == 401
+# ------------------------------------------------- B) comportamento novo (guards)
 
 
-def test_busca_com_preco_min_invalido_devolve_400(client):
-    # comportamento novo
-    r = client.get("/produtos/busca?preco_min=abc")
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
+def test_criar_produto_sem_flags_retorna_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.post("/produtos", json=corpo())
+    assert resposta.status_code == 403
+    assert resposta.get_json()["erro"] == "Recurso desabilitado"
 
 
-@pytest.mark.parametrize("campo,valor", [("preco", "abc"), ("estoque", "x")])
-def test_criar_produto_com_numero_invalido_devolve_400(client, campo, valor):
-    # comportamento novo
-    r = client.post("/produtos", json={**NOVO, campo: valor})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
+def test_atualizar_produto_sem_flags_retorna_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.put("/produtos/1", json=corpo())
+    assert resposta.status_code == 403
+    assert resposta.get_json()["erro"] == "Recurso desabilitado"
 
 
-def test_atualizar_produto_com_categoria_invalida_devolve_400(client):
-    # comportamento novo
-    r = client.put("/produtos/1", json={**NOVO, "categoria": "brinquedos"})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
-    assert client.get("/produtos/1").get_json()["dados"]["categoria"] == "informatica"
+def test_deletar_produto_sem_flags_retorna_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.delete("/produtos/1")
+    assert resposta.status_code == 403
+    assert resposta.get_json()["erro"] == "Recurso desabilitado"
 
 
-def test_atualizar_produto_com_nome_curto_devolve_400(client):
-    # comportamento novo
-    r = client.put("/produtos/1", json={**NOVO, "nome": "A"})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
-    assert client.get("/produtos/1").get_json()["dados"]["nome"] == "Notebook Gamer"
+def test_criar_produto_com_flag_de_escrita_e_sem_token_retorna_401(montar):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",))
+    resposta = cliente.post("/produtos", json=corpo())
+    assert resposta.status_code == 401
+    assert resposta.get_json()["erro"] == "Não autorizado"
 
 
-def test_criar_produto_com_aspas_no_nome_preserva_nome(client):
-    # comportamento novo
-    r = client.post("/produtos", json={**NOVO, "nome": "Livro d'Água"})
-    assert r.status_code == 201
-    novo_id = r.get_json()["dados"]["id"]
-    assert client.get(f"/produtos/{novo_id}").get_json()["dados"]["nome"] == "Livro d'Água"
+def test_criar_produto_com_flag_de_escrita_e_token_errado_retorna_401(montar):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado="token-errado")
+    resposta = cliente.post("/produtos", json=corpo())
+    assert resposta.status_code == 401
+    assert resposta.get_json()["erro"] == "Não autorizado"
 
 
-def test_busca_com_injecao_sql_nao_devolve_produtos(client):
-    # comportamento novo
-    r = client.get("/produtos/busca", query_string={"q": "' OR 1=1 --"})
-    assert r.status_code == 200
-    assert r.get_json()["total"] == 0
+def test_flag_de_leitura_sensivel_nao_libera_escrita_de_produto(montar):
+    cliente = montar(flags=("ENABLE_SENSITIVE_READS",), token_enviado="token-de-teste")
+    resposta = cliente.post("/produtos", json=corpo())
+    assert resposta.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "metodo, caminho, enviar_corpo, status_esperado",
+    [
+        ("post", "/produtos", True, 201),
+        ("put", "/produtos/1", True, 200),
+        ("delete", "/produtos/1", False, 200),
+    ],
+)
+def test_escrita_com_flag_ligada_e_token_certo_mantem_status_original(
+    montar, metodo, caminho, enviar_corpo, status_esperado
+):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado="token-de-teste")
+    kwargs = {"json": corpo()} if enviar_corpo else {}
+    resposta = getattr(cliente, metodo)(caminho, **kwargs)
+    assert resposta.status_code == status_esperado
+
+
+# ------------------------------------------------- B) comportamento novo (correções)
+
+
+def test_criar_produto_com_aspas_simples_no_nome_retorna_201(cliente):
+    nome = "Mouse 'Gamer'"
+    resposta = cliente.post("/produtos", json=corpo(nome=nome))
+    assert resposta.status_code == 201
+    id_ = resposta.get_json()["dados"]["id"]
+    assert cliente.get(f"/produtos/{id_}").get_json()["dados"]["nome"] == nome
+
+
+def test_busca_com_injecao_de_sql_retorna_zero_resultados(cliente):
+    resposta = cliente.get("/produtos/busca", query_string={"q": "' OR '1'='1"})
+    assert resposta.status_code == 200
+    assert resposta.get_json()["total"] == 0
+
+
+def test_busca_com_preco_min_invalido_retorna_400(cliente):
+    resposta = cliente.get("/produtos/busca?preco_min=abc")
+    assert resposta.status_code == 400
+
+
+def test_atualizar_produto_com_categoria_invalida_retorna_400(cliente):
+    resposta = cliente.put("/produtos/1", json=corpo(categoria="xyz"))
+    assert resposta.status_code == 400
+    assert "Categoria inválida" in resposta.get_json()["erro"]
+
+
+def test_atualizar_produto_com_nome_de_um_caractere_retorna_400(cliente):
+    resposta = cliente.put("/produtos/1", json=corpo(nome="A"))
+    assert resposta.status_code == 400
+
+
+def test_criar_produto_sem_corpo_json_retorna_400(cliente):
+    resposta = cliente.post("/produtos", data="", content_type="application/json")
+    assert resposta.status_code == 400

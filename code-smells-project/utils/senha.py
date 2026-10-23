@@ -1,4 +1,4 @@
-"""Hash de senha com scrypt e salt (biblioteca padrão)."""
+"""Hash de senha com scrypt e salt (T04). Só biblioteca padrão."""
 import hashlib
 import hmac
 import os
@@ -19,15 +19,3 @@ def verificar_senha(senha, armazenado):
     except (ValueError, AttributeError):
         return False
     return hmac.compare_digest(digest.hex(), digest_hex)
-
-
-def eh_hash(armazenado):
-    partes = str(armazenado).split(":")
-    if len(partes) != 2:
-        return False
-    try:
-        bytes.fromhex(partes[0])
-        bytes.fromhex(partes[1])
-    except ValueError:
-        return False
-    return True

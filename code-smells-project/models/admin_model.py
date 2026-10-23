@@ -1,16 +1,22 @@
-"""Operações administrativas sobre o banco (expostas só atrás do guard de admin)."""
-
-TABELAS_NA_ORDEM_DE_LIMPEZA = ["itens_pedido", "pedidos", "produtos", "usuarios"]
+from models.database import get_db
 
 
-def limpar_tabelas(conn):
-    for tabela in TABELAS_NA_ORDEM_DE_LIMPEZA:
-        conn.execute(f"DELETE FROM {tabela}")  # nome vem da lista fixa acima
+def resetar():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM itens_pedido")
+    cursor.execute("DELETE FROM pedidos")
+    cursor.execute("DELETE FROM produtos")
+    cursor.execute("DELETE FROM usuarios")
+    db.commit()
 
 
-def executar_sql(conn, sql):
-    """Executa o SQL recebido. Devolve as linhas se for SELECT, senão None."""
-    cursor = conn.execute(sql)
-    if sql.strip().upper().startswith("SELECT"):
-        return [dict(linha) for linha in cursor.fetchall()]
+def executar(query):
+    """Executa SQL bruto (rota de administração). Devolve as linhas em SELECT; None nos demais casos."""
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute(query)
+    if query.strip().upper().startswith("SELECT"):
+        return [dict(row) for row in cursor.fetchall()]
+    db.commit()
     return None

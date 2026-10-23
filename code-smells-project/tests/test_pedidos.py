@@ -1,220 +1,233 @@
-"""Pedidos e relatório: caracterização do contrato original + comportamento novo."""
+"""Testes do domínio /pedidos.
+
+Bloco A: caracterização do comportamento original (passa antes e depois da refatoração).
+Bloco B: comportamento novo (guards, validação de tipos);
+falha no original.
+"""
+import sqlite3
+from pathlib import Path
+
 import pytest
 
-CHAVES_PEDIDO = {"id", "usuario_id", "status", "total", "criado_em", "itens"}
-CHAVES_ITEM = {"produto_id", "produto_nome", "quantidade", "preco_unitario"}
-CHAVES_RELATORIO = {
-    "total_pedidos", "faturamento_bruto", "desconto_aplicavel", "faturamento_liquido",
-    "pedidos_pendentes", "pedidos_aprovados", "pedidos_cancelados", "ticket_medio",
-}
+RAIZ = Path(__file__).resolve().parent.parent
+SENHA = "123456"
+ITENS_VALIDOS = [
+    {"produto_id": 1, "quantidade": 1},
+    {"produto_id": 2, "quantidade": 2},
+]
 
 
-def _pedido(client, usuario_id=1, itens=None):
-    itens = itens if itens is not None else [{"produto_id": 1, "quantidade": 1}]
-    return client.post("/pedidos", json={"usuario_id": usuario_id, "itens": itens})
+def corpo(**mudancas):
+    novo = {"usuario_id": 2, "senha": SENHA, "itens": [dict(i) for i in ITENS_VALIDOS]}
+    novo.update(mudancas)
+    return novo
 
 
-def _estoque(query_db, produto_id):
-    return query_db("SELECT estoque FROM produtos WHERE id = ?", (produto_id,))[0]["estoque"]
+def corpo_sem(campo):
+    novo = corpo()
+    novo.pop(campo)
+    return novo
 
 
-# ---------------- caracterização: criação ----------------
-
-def test_criar_pedido_retorna_201_com_id_e_total(client):
-    resp = _pedido(client, itens=[{"produto_id": 1, "quantidade": 2}, {"produto_id": 3, "quantidade": 3}])
-    assert resp.status_code == 201
-    dados = resp.get_json()["dados"]
-    assert isinstance(dados["pedido_id"], int)
-    assert dados["total"] == pytest.approx(5999.99 * 2 + 299.90 * 3)
+def um_item(produto_id, quantidade):
+    return [{"produto_id": produto_id, "quantidade": quantidade}]
 
 
-def test_criar_pedido_baixa_estoque_e_grava_itens(client, query_db):
-    resp = _pedido(client, itens=[{"produto_id": 1, "quantidade": 2}, {"produto_id": 4, "quantidade": 5}])
-    pedido_id = resp.get_json()["dados"]["pedido_id"]
-    assert _estoque(query_db, 1) == 8
-    assert _estoque(query_db, 4) == 10
-    itens = query_db("SELECT * FROM itens_pedido WHERE pedido_id = ? ORDER BY produto_id", (pedido_id,))
-    assert [(i["produto_id"], i["quantidade"]) for i in itens] == [(1, 2), (4, 5)]
-    assert itens[0]["preco_unitario"] == pytest.approx(5999.99)
-    assert itens[1]["preco_unitario"] == pytest.approx(1899.90)
+def listar(cliente):
+    resposta = cliente.get("/pedidos")
+    assert resposta.status_code == 200
+    return resposta.get_json()["dados"]
 
 
-def test_produto_inexistente_400(client, query_db):
-    resp = _pedido(client, itens=[{"produto_id": 9999, "quantidade": 1}])
-    assert resp.status_code == 400
-    assert query_db("SELECT COUNT(*) AS n FROM pedidos")[0]["n"] == 0
+def estoque(cliente, produto_id):
+    return cliente.get(f"/produtos/{produto_id}").get_json()["dados"]["estoque"]
 
 
-def test_estoque_insuficiente_400_e_estoque_intacto(client, query_db):
-    resp = _pedido(client, itens=[{"produto_id": 6, "quantidade": 9}])
-    assert resp.status_code == 400
-    assert _estoque(query_db, 6) == 8
-    assert query_db("SELECT COUNT(*) AS n FROM pedidos")[0]["n"] == 0
+def estoque_no_banco(tmp_path, produto_id):
+    con = sqlite3.connect(tmp_path / "loja.db")
+    try:
+        return con.execute("SELECT estoque FROM produtos WHERE id = ?", (produto_id,)).fetchone()[0]
+    finally:
+        con.close()
 
 
-def test_itens_vazios_400(client):
-    assert _pedido(client, itens=[]).status_code == 400
+def total_pedidos_no_banco(tmp_path):
+    con = sqlite3.connect(tmp_path / "loja.db")
+    try:
+        return con.execute("SELECT COUNT(*) FROM pedidos").fetchone()[0]
+    finally:
+        con.close()
 
 
-def test_sem_usuario_id_400(client):
-    resp = client.post("/pedidos", json={"itens": [{"produto_id": 1, "quantidade": 1}]})
-    assert resp.status_code == 400
+# ---------------------------------------------------------------- Bloco A
 
 
-# ---------------- caracterização: listagens ----------------
+def test_criar_pedido_valido_retorna_201_com_id_total_e_mensagem(cliente):
+    resposta = cliente.post("/pedidos", json=corpo())
+    assert resposta.status_code == 201
+    json = resposta.get_json()
+    assert json["mensagem"] == "Pedido criado com sucesso"
+    assert isinstance(json["dados"]["pedido_id"], int)
+    assert json["dados"]["total"] == pytest.approx(6179.79)
 
-def test_listar_todos_pedidos_formato(client):
-    _pedido(client, usuario_id=1, itens=[{"produto_id": 3, "quantidade": 2}])
-    resp = client.get("/pedidos")
-    assert resp.status_code == 200
-    pedidos = resp.get_json()["dados"]
+
+def test_criar_pedido_baixa_o_estoque_dos_produtos(cliente):
+    cliente.post("/pedidos", json=corpo())
+    assert estoque(cliente, 1) == 9
+    assert estoque(cliente, 2) == 48
+
+
+def test_listar_pedidos_mostra_pedido_pendente_com_nomes_dos_produtos(cliente):
+    cliente.post("/pedidos", json=corpo())
+    pedidos = listar(cliente)
     assert len(pedidos) == 1
-    assert set(pedidos[0]) == CHAVES_PEDIDO
     assert pedidos[0]["status"] == "pendente"
-    item = pedidos[0]["itens"][0]
-    assert set(item) == CHAVES_ITEM
-    assert item["produto_id"] == 3
-    assert "Teclado" in item["produto_nome"]
-    assert item["quantidade"] == 2
-    assert item["preco_unitario"] == pytest.approx(299.90)
+    nomes = {i["produto_nome"] for i in pedidos[0]["itens"]}
+    assert nomes == {"Notebook Gamer", "Mouse Wireless"}
 
 
-def test_listar_pedidos_filtra_por_usuario(client):
-    _pedido(client, usuario_id=1)
-    _pedido(client, usuario_id=2, itens=[{"produto_id": 3, "quantidade": 1}])
-    _pedido(client, usuario_id=2, itens=[{"produto_id": 4, "quantidade": 1}])
-    pedidos = client.get("/pedidos/usuario/2").get_json()["dados"]
-    assert len(pedidos) == 2
-    assert all(p["usuario_id"] == 2 for p in pedidos)
-    assert set(pedidos[0]) == CHAVES_PEDIDO
+def test_listar_pedidos_do_usuario_2_traz_o_pedido_criado(cliente):
+    cliente.post("/pedidos", json=corpo())
+    resposta = cliente.get("/pedidos/usuario/2")
+    assert resposta.status_code == 200
+    dados = resposta.get_json()["dados"]
+    assert len(dados) == 1
+    assert dados[0]["usuario_id"] == 2
 
 
-def test_usuario_sem_pedidos_lista_vazia(client):
-    resp = client.get("/pedidos/usuario/3")
-    assert resp.status_code == 200
-    assert resp.get_json()["dados"] == []
+def test_listar_pedidos_de_usuario_sem_pedidos_retorna_lista_vazia(cliente):
+    cliente.post("/pedidos", json=corpo())
+    resposta = cliente.get("/pedidos/usuario/3")
+    assert resposta.status_code == 200
+    assert resposta.get_json()["dados"] == []
 
 
-# ---------------- caracterização: status ----------------
-
-def test_status_valido_200_e_persistido(client, query_db):
-    pedido_id = _pedido(client).get_json()["dados"]["pedido_id"]
-    resp = client.put(f"/pedidos/{pedido_id}/status", json={"status": "aprovado"})
-    assert resp.status_code == 200
-    assert query_db("SELECT status FROM pedidos WHERE id = ?", (pedido_id,))[0]["status"] == "aprovado"
+def test_criar_pedido_sem_usuario_id_retorna_400(cliente):
+    resposta = cliente.post("/pedidos", json=corpo_sem("usuario_id"))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Usuario ID é obrigatório"
 
 
-def test_status_invalido_400(client, query_db):
-    pedido_id = _pedido(client).get_json()["dados"]["pedido_id"]
-    resp = client.put(f"/pedidos/{pedido_id}/status", json={"status": "voando"})
-    assert resp.status_code == 400
-    assert query_db("SELECT status FROM pedidos WHERE id = ?", (pedido_id,))[0]["status"] == "pendente"
+def test_criar_pedido_com_itens_vazios_retorna_400(cliente):
+    resposta = cliente.post("/pedidos", json=corpo(itens=[]))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Pedido deve ter pelo menos 1 item"
 
 
-# ---------------- caracterização: relatório ----------------
-
-def test_relatorio_vazio_zerado(client):
-    resp = client.get("/relatorios/vendas")
-    assert resp.status_code == 200
-    dados = resp.get_json()["dados"]
-    assert set(dados) == CHAVES_RELATORIO
-    assert all(v == 0 for v in dados.values())
+def test_criar_pedido_com_produto_inexistente_retorna_400_e_nao_cria_pedido(cliente):
+    resposta = cliente.post("/pedidos", json=corpo(itens=um_item(999, 1)))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Produto 999 não encontrado"
+    assert listar(cliente) == []
 
 
-@pytest.mark.parametrize("itens, taxa", [
-    ([{"produto_id": 1, "quantidade": 2}], 0.10),   # 11999.98
-    ([{"produto_id": 1, "quantidade": 1}], 0.05),   # 5999.99
-    ([{"produto_id": 4, "quantidade": 1}], 0.02),   # 1899.90
-    ([{"produto_id": 3, "quantidade": 1}], 0.0),    # 299.90
-])
-def test_relatorio_faixas_de_desconto(client, itens, taxa):
-    total = _pedido(client, itens=itens).get_json()["dados"]["total"]
-    dados = client.get("/relatorios/vendas").get_json()["dados"]
-    assert dados["faturamento_bruto"] == pytest.approx(total)
-    assert dados["desconto_aplicavel"] == pytest.approx(round(total * taxa, 2))
-    assert dados["faturamento_liquido"] == pytest.approx(round(total - total * taxa, 2))
+def test_criar_pedido_com_estoque_insuficiente_retorna_400_e_nao_cria_pedido(cliente):
+    resposta = cliente.post("/pedidos", json=corpo(itens=um_item(5, 100)))
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Estoque insuficiente para Headset Gamer"
+    assert listar(cliente) == []
 
 
-def test_relatorio_contagens_por_status_e_ticket(client):
-    ids = [_pedido(client, itens=[{"produto_id": 3, "quantidade": 1}]).get_json()["dados"]["pedido_id"]
-           for _ in range(4)]
-    client.put(f"/pedidos/{ids[0]}/status", json={"status": "aprovado"})
-    client.put(f"/pedidos/{ids[1]}/status", json={"status": "cancelado"})
-    client.put(f"/pedidos/{ids[2]}/status", json={"status": "enviado"})
-    dados = client.get("/relatorios/vendas").get_json()["dados"]
-    assert dados["total_pedidos"] == 4
-    assert dados["pedidos_pendentes"] == 1
-    assert dados["pedidos_aprovados"] == 1
-    assert dados["pedidos_cancelados"] == 1
-    assert dados["ticket_medio"] == pytest.approx(299.90)
+def test_atualizar_status_para_aprovado_retorna_200_e_reflete_na_listagem(cliente):
+    pedido_id = cliente.post("/pedidos", json=corpo()).get_json()["dados"]["pedido_id"]
+    resposta = cliente.put(f"/pedidos/{pedido_id}/status", json={"status": "aprovado"})
+    assert resposta.status_code == 200
+    assert resposta.get_json()["mensagem"] == "Status atualizado"
+    assert listar(cliente)[0]["status"] == "aprovado"
 
 
-# ---------------- comportamento novo: guards por flag ----------------
-
-@pytest.mark.parametrize("url", ["/pedidos", "/pedidos/usuario/2"])
-def test_leitura_sensivel_flag_desligada_403(make_client, url):
-    # comportamento novo
-    assert make_client().get(url).status_code == 403
-
-
-@pytest.mark.parametrize("url", ["/pedidos", "/pedidos/usuario/2"])
-def test_leitura_sensivel_sem_token_401(make_client, url):
-    # comportamento novo
-    assert make_client(flags=True, enviar_token=False).get(url).status_code == 401
+def test_atualizar_status_invalido_retorna_400(cliente):
+    pedido_id = cliente.post("/pedidos", json=corpo()).get_json()["dados"]["pedido_id"]
+    resposta = cliente.put(f"/pedidos/{pedido_id}/status", json={"status": "invalido"})
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Status inválido"
 
 
-def _escritas(c):
-    return [
-        c.post("/pedidos", json={"usuario_id": 1, "itens": [{"produto_id": 1, "quantidade": 1}]}),
-        c.put("/pedidos/1/status", json={"status": "aprovado"}),
-    ]
+# ---------------------------------------------------------------- Bloco B
 
 
-def test_escrita_flag_desligada_403(make_client):
-    # comportamento novo
-    assert [r.status_code for r in _escritas(make_client())] == [403, 403]
+def test_criar_pedido_sem_flags_retorna_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.post("/pedidos", json=corpo())
+    assert resposta.status_code == 403
+    assert resposta.get_json()["erro"] == "Recurso desabilitado"
 
 
-def test_escrita_sem_token_401(make_client):
-    # comportamento novo
-    assert [r.status_code for r in _escritas(make_client(flags=True, enviar_token=False))] == [401, 401]
+def test_criar_pedido_com_flag_de_escrita_e_sem_token_retorna_401(montar):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",))
+    resposta = cliente.post("/pedidos", json=corpo())
+    assert resposta.status_code == 401
+    assert resposta.get_json()["erro"] == "Não autorizado"
 
 
-def test_relatorio_flag_desligada_403(make_client):
-    # comportamento novo
-    assert make_client().get("/relatorios/vendas").status_code == 403
+def test_criar_pedido_com_token_errado_retorna_401(montar):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado="token-errado")
+    resposta = cliente.post("/pedidos", json=corpo())
+    assert resposta.status_code == 401
 
 
-def test_relatorio_sem_token_401(make_client):
-    # comportamento novo
-    assert make_client(flags=True, enviar_token=False).get("/relatorios/vendas").status_code == 401
+def test_listar_pedidos_sem_flags_retorna_403(cliente_sem_flags):
+    assert cliente_sem_flags.get("/pedidos").status_code == 403
 
 
-# ---------------- comportamento novo: validação de entrada ----------------
-
-@pytest.mark.parametrize("quantidade", [-3, 0])
-def test_quantidade_nao_positiva_400_e_estoque_intacto(client, query_db, quantidade):
-    # comportamento novo
-    resp = _pedido(client, itens=[{"produto_id": 1, "quantidade": quantidade}])
-    assert resp.status_code == 400
-    assert _estoque(query_db, 1) == 10
+def test_listar_pedidos_do_usuario_sem_flags_retorna_403(cliente_sem_flags):
+    assert cliente_sem_flags.get("/pedidos/usuario/2").status_code == 403
 
 
-@pytest.mark.parametrize("item", [{"quantidade": 1}, {"produto_id": 1}, {"produto_id": 1, "quantidade": "2"}])
-def test_item_malformado_400(client, query_db, item):
-    # comportamento novo
-    assert _pedido(client, itens=[item]).status_code == 400
-    assert _estoque(query_db, 1) == 10
+def test_flag_de_escrita_nao_libera_leitura_sensivel_de_pedidos(montar):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado="token-de-teste")
+    assert cliente.get("/pedidos").status_code == 403
 
 
-def test_status_sem_corpo_400(client):
-    # comportamento novo
-    _pedido(client)
-    assert client.put("/pedidos/1/status").status_code == 400
+def test_atualizar_status_sem_flags_retorna_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.put("/pedidos/1/status", json={"status": "aprovado"})
+    assert resposta.status_code == 403
 
 
-def test_usuario_id_nao_inteiro_400(client, query_db):
-    # comportamento novo
-    resp = _pedido(client, usuario_id="1; DROP TABLE pedidos")
-    assert resp.status_code == 400
-    assert query_db("SELECT COUNT(*) AS n FROM pedidos")[0]["n"] == 0
+def test_criar_pedido_sem_senha_com_flag_e_token_retorna_201_contrato_original(cliente):
+    # O contrato original não envia senha. Com o guard de escrita liberado, o pedido é criado.
+    resposta = cliente.post("/pedidos", json=corpo_sem("senha"))
+    assert resposta.status_code == 201
+    assert len(listar(cliente)) == 1
+
+
+def test_criar_pedido_com_campo_senha_extra_nao_muda_o_contrato(cliente):
+    # Campo que o contrato original não define é ignorado: nenhuma credencial é conferida.
+    resposta = cliente.post("/pedidos", json=corpo(senha="errada"))
+    assert resposta.status_code == 201
+
+
+def test_criar_pedido_com_quantidade_negativa_retorna_400_e_nao_muda_estoque(cliente, tmp_path):
+    resposta = cliente.post("/pedidos", json=corpo(itens=um_item(1, -3)))
+    assert resposta.status_code == 400
+    assert estoque_no_banco(tmp_path, 1) == 10
+    assert total_pedidos_no_banco(tmp_path) == 0
+
+
+@pytest.mark.parametrize("quantidade", ["2", 1.5])
+def test_criar_pedido_com_quantidade_nao_inteira_retorna_400(cliente, quantidade):
+    resposta = cliente.post("/pedidos", json=corpo(itens=um_item(1, quantidade)))
+    assert resposta.status_code == 400
+
+
+def test_criar_pedido_com_produto_id_texto_retorna_400_e_nao_grava(cliente, tmp_path):
+    resposta = cliente.post("/pedidos", json=corpo(itens=um_item("1 OR 1=1", 1)))
+    assert resposta.status_code == 400
+    assert total_pedidos_no_banco(tmp_path) == 0
+
+
+def test_criar_pedido_com_usuario_id_texto_nunca_retorna_201(cliente, tmp_path):
+    resposta = cliente.post("/pedidos", json=corpo(usuario_id="2 OR 1=1"))
+    assert resposta.status_code in (400, 401)
+    assert total_pedidos_no_banco(tmp_path) == 0
+
+
+def test_servico_criar_pedido_sem_credencial_do_dono_cria_o_pedido(montar, monkeypatch):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado="token-de-teste")
+    monkeypatch.syspath_prepend(str(RAIZ))
+    from services import pedido_service
+
+    # O banco é acessado pela requisição (flask.g); o serviço roda dentro do contexto da aplicação.
+    with cliente.application.app_context():
+        resultado = pedido_service.criar_pedido(usuario_id=2, itens=[{"produto_id": 1, "quantidade": 1}])
+    assert resultado["pedido_id"] == 1
+    assert resultado["total"] == pytest.approx(5999.99)

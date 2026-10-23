@@ -1,56 +1,52 @@
 # code-smells-project
 
-API de E-commerce em Python/Flask usada como entrada do desafio `refactor-arch`, refatorada para MVC.
+API de e-commerce em Python/Flask, refatorada para MVC (camadas `models/`, `services/`, `controllers/`, `routes/`).
 
 ## Como rodar
 
 ```bash
-python -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env   # opcional; as variáveis são lidas do ambiente
+pip install -r requirements.txt
+cp .env.example .env        # opcional: ajuste as variáveis
 python app.py
 ```
 
-A aplicação sobe em `http://localhost:5000` (`PORT` muda a porta; no macOS a 5000 costuma estar ocupada pelo AirPlay). O banco SQLite (`loja.db`, ou `DB_PATH`) é criado no boot, já com produtos e usuários de exemplo. As senhas do seed são gravadas com hash (scrypt); bancos antigos com senha em texto puro são migrados no boot.
+A aplicação sobe em `http://localhost:5000` (`PORT`). O banco SQLite (`loja.db`, ou `DB_PATH`) é criado na subida, já com produtos e usuários de exemplo.
 
-## Estrutura
+**Atenção:** o seed agora grava senhas em hash. Um `loja.db` criado pela versão antiga continua com senhas em texto puro; apague o arquivo antes de subir esta versão.
 
-```
-app.py          entry point: create_app() compõe config, banco, middlewares e rotas
-config/         settings (ambiente) e regras de negócio nomeadas
-models/         acesso a dados (SQL parametrizado), schema e seed
-services/       regra de negócio e erros de domínio
-controllers/    leitura da requisição, chamada ao serviço, resposta
-routes/         mapeamento método + caminho -> controller, com guards
-middlewares/    guards (T08), conexão por requisição, erro central
-serializers/    campos públicos de cada entidade
-utils/          hash de senha e checagem de tipos
-tests/          pytest: caracterização, comportamento novo e unitários
-```
+## Configuração
 
-## Rotas protegidas (T08)
+| Variável | Default | Efeito |
+| --- | --- | --- |
+| `SECRET_KEY` | aleatória em dev | Obrigatória em `APP_ENV=production` |
+| `DEBUG` | `false` | Modo debug do Flask |
+| `HOST` / `PORT` | `0.0.0.0` / `5000` | Endereço do servidor |
+| `DB_PATH` | `loja.db` | Arquivo do SQLite |
+| `CORS_ORIGINS` | vazio | Origens liberadas para CORS, separadas por vírgula |
+| `ENABLE_ADMIN_ROUTES` | `false` | Libera administração |
+| `ENABLE_SENSITIVE_READS` | `false` | Libera leitura sensível |
+| `ENABLE_WRITE_ROUTES` | `false` | Libera escrita |
+| `ADMIN_TOKEN` | vazio | Token exigido no header `X-Admin-Token` quando uma flag está ligada |
 
-A API não tem autenticação de usuário. Para não deixar rotas destrutivas ou sensíveis abertas, elas continuam registradas, mas ficam atrás de flags desligadas por padrão (respondem **403**). Com a flag ligada, exigem o header `X-Admin-Token` igual a `ADMIN_TOKEN` (senão **401**).
+## Controle de acesso
+
+As rotas sem autenticação real continuam registradas, mas protegidas por flag. Com a flag desligada, respondem **403**. Com a flag ligada e sem o token certo, **401**.
 
 | Flag | Rotas |
-|---|---|
-| `ENABLE_ADMIN_ROUTES` | `POST /admin/reset-db`, `POST /admin/query`, `GET /relatorios/vendas` |
-| `ENABLE_SENSITIVE_READS` | `GET /usuarios`, `GET /usuarios/<id>`, `GET /pedidos`, `GET /pedidos/usuario/<id>` |
-| `ENABLE_WRITE_ROUTES` | `POST/PUT/DELETE /produtos`, `POST /usuarios`, `POST /pedidos`, `PUT /pedidos/<id>/status` |
+| --- | --- |
+| `ENABLE_ADMIN_ROUTES` | `POST /admin/reset-db`, `POST /admin/query` |
+| `ENABLE_SENSITIVE_READS` | `GET /usuarios`, `GET /usuarios/<id>`, `GET /pedidos`, `GET /pedidos/usuario/<id>`, `GET /relatorios/vendas` |
+| `ENABLE_WRITE_ROUTES` | `POST/PUT/DELETE /produtos`, `POST /pedidos`, `PUT /pedidos/<id>/status` |
 
-Públicas: `GET /`, `GET /health`, `GET /produtos`, `GET /produtos/busca`, `GET /produtos/<id>`, `POST /login`.
+Sem guard: `GET /`, `GET /health`, leituras do catálogo (`/produtos`), `POST /usuarios` (cadastro) e `POST /login`.
 
-```bash
-ENABLE_WRITE_ROUTES=true ADMIN_TOKEN=troque-me python app.py
-curl -X POST localhost:5000/produtos -H 'X-Admin-Token: troque-me' -H 'Content-Type: application/json' \
-  -d '{"nome":"Livro","preco":10,"estoque":1,"categoria":"livros"}'
-```
+`POST /pedidos` segue o contrato original: a conta vem do `usuario_id` do corpo, sem credencial do dono. A proteção é o guard de escrita (`ENABLE_WRITE_ROUTES` e `X-Admin-Token`).
 
 ## Testes
 
 ```bash
-.venv/bin/python -m pytest -q tests
+pip install -r requirements-dev.txt
+python -m pytest -q tests
 ```
 
-## Segurança
-
-A `SECRET_KEY` antiga (`minha-chave-...`) esteve no repositório e era devolvida pelo `/health`: considere-a vazada e defina uma nova em `SECRET_KEY`.
+Cada teste roda com banco novo, num diretório temporário.

@@ -1,84 +1,69 @@
-"""Fixtures comuns.
+"""Fixtures compartilhadas.
 
-Cada teste importa a aplicação do zero, com o diretório de trabalho num
-diretório temporário (o banco `loja.db` nasce ali, já com o seed). Funciona
-com o entry point original (`app.app`) e com a fábrica (`app.create_app()`).
+Cada teste roda num diretório temporário: o banco `loja.db` é criado pelo próprio
+app (com o seed) e nunca toca o banco real do projeto. Os módulos do projeto são
+descarregados antes de cada teste, então nenhum estado vaza entre testes.
+
+Os testes usam só o cliente HTTP (`app.test_client()`) e o entry point `app.py`,
+que expõe o objeto `app`. Não importam módulos internos.
 """
-import importlib
-import sqlite3
 import sys
 from pathlib import Path
 
 import pytest
 
-PROJETO = Path(__file__).resolve().parents[1]
-if str(PROJETO) not in sys.path:
-    sys.path.insert(0, str(PROJETO))
-
-MODULOS_DO_PROJETO = (
-    "app", "controllers", "models", "database", "config", "services",
-    "routes", "middlewares", "serializers", "utils",
-)
-FLAGS = ("ENABLE_ADMIN_ROUTES", "ENABLE_SENSITIVE_READS", "ENABLE_WRITE_ROUTES")
+RAIZ = Path(__file__).resolve().parent.parent
 TOKEN = "token-de-teste"
+TOKEN_ERRADO = "token-errado"
+FLAGS = ("ENABLE_ADMIN_ROUTES", "ENABLE_SENSITIVE_READS", "ENABLE_WRITE_ROUTES")
 
 
-def _descarregar_modulos():
-    for nome in list(sys.modules):
-        if nome.split(".")[0] in MODULOS_DO_PROJETO:
+def _e_codigo_do_projeto(arquivo):
+    caminho = Path(arquivo).resolve()
+    return RAIZ in caminho.parents and ".venv" not in caminho.parts and "tests" not in caminho.parts
+
+
+def _descarregar_projeto():
+    for nome, modulo in list(sys.modules.items()):
+        if _e_codigo_do_projeto(getattr(modulo, "__file__", None) or ""):
             del sys.modules[nome]
 
 
 @pytest.fixture
-def make_client(tmp_path, monkeypatch):
-    """Cria um cliente de teste. `flags=True` liga as três flags do T08 e
-    envia `X-Admin-Token` válido em toda requisição (comportamento original)."""
+def montar(monkeypatch, tmp_path):
+    """Devolve uma função que sobe o app com as flags pedidas.
 
-    def _criar(flags=False, token=TOKEN, enviar_token=True, **env):
-        monkeypatch.chdir(tmp_path)
-        for nome in FLAGS + ("ADMIN_TOKEN", "DB_PATH", "SECRET_KEY", "DEBUG", "APP_ENV"):
-            monkeypatch.delenv(nome, raising=False)
+    flags: nomes de flags T08 a ligar (`ENABLE_*`). As demais ficam desligadas.
+    token_enviado: TOKEN, TOKEN_ERRADO ou None (cabeçalho X-Admin-Token ausente).
+    """
+
+    def _montar(flags=(), token_enviado=None):
+        for chave in (*FLAGS, "ADMIN_TOKEN"):
+            monkeypatch.delenv(chave, raising=False)
+        for flag in flags:
+            monkeypatch.setenv(flag, "true")
         if flags:
-            for nome in FLAGS:
-                monkeypatch.setenv(nome, "true")
-        if token:
-            monkeypatch.setenv("ADMIN_TOKEN", token)
-        for nome, valor in env.items():
-            monkeypatch.setenv(nome, valor)
-        _descarregar_modulos()
-        modulo = importlib.import_module("app")
-        aplicacao = modulo.create_app() if hasattr(modulo, "create_app") else modulo.app
-        aplicacao.config["TESTING"] = True
-        cliente = aplicacao.test_client()
-        if flags and enviar_token and token:
-            cliente.environ_base["HTTP_X_ADMIN_TOKEN"] = token
+            monkeypatch.setenv("ADMIN_TOKEN", TOKEN)
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.syspath_prepend(str(RAIZ))
+        _descarregar_projeto()
+        import app as modulo_app
+
+        cliente = modulo_app.app.test_client()
+        if token_enviado is not None:
+            cliente.environ_base["HTTP_X_ADMIN_TOKEN"] = token_enviado
         return cliente
 
-    yield _criar
-    _descarregar_modulos()
+    return _montar
 
 
 @pytest.fixture
-def client(make_client):
-    """Cliente com as flags ligadas e o token: reproduz o contrato original."""
-    return make_client(flags=True)
+def cliente(montar):
+    """Comportamento original: todas as flags ligadas e o token certo em todas as chamadas."""
+    return montar(flags=FLAGS, token_enviado=TOKEN)
 
 
 @pytest.fixture
-def db_path(tmp_path):
-    return tmp_path / "loja.db"
-
-
-@pytest.fixture
-def query_db(db_path):
-    """Lê o banco do teste direto pelo arquivo (só leitura de verificação)."""
-
-    def _consultar(sql, params=()):
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
-        finally:
-            conn.close()
-
-    return _consultar
+def cliente_sem_flags(montar):
+    """Flags T08 desligadas (default da aplicação refatorada)."""
+    return montar()

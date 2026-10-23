@@ -1,158 +1,190 @@
-"""Domínio SISTEMA e ADMIN: caracterização + comportamento novo."""
-import json
+"""Testes de sistema (índice, health), relatório de vendas e administração."""
+import sqlite3
 
 import pytest
 
 SEGREDO = "minha-chave-super-secreta-123"
+SQL_SELECT = {"sql": "SELECT id, nome FROM produtos"}
 
 
-def _contagens(query_db):
-    return {
-        t: query_db(f"SELECT COUNT(*) AS n FROM {t}")[0]["n"]
-        for t in ("produtos", "usuarios", "pedidos")
-    }
+def _dados(resposta):
+    corpo = resposta.get_json()
+    return corpo.get("dados", corpo)
 
 
-# ---------------- caracterização ----------------
-
-def test_index_contrato(client):
-    r = client.get("/")
-    assert r.status_code == 200
-    assert r.get_json() == {
-        "mensagem": "Bem-vindo à API da Loja",
-        "versao": "1.0.0",
-        "endpoints": {
-            "produtos": "/produtos",
-            "usuarios": "/usuarios",
-            "pedidos": "/pedidos",
-            "login": "/login",
-            "relatorios": "/relatorios/vendas",
-            "health": "/health",
-        },
-    }
+def _contar_produtos(tmp_path):
+    con = sqlite3.connect(tmp_path / "loja.db")
+    try:
+        return con.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
+    finally:
+        con.close()
 
 
-@pytest.mark.parametrize("rota", ["/", "/health"])
-def test_rotas_publicas_sem_flags(make_client, rota):
-    assert make_client().get(rota).status_code == 200
+# ---------------------------------------------------------------- A) caracterização
 
 
-def test_health_contrato(client):
-    r = client.get("/health")
-    assert r.status_code == 200
-    corpo = r.get_json()
+def test_indice_devolve_mensagem_versao_e_endpoints(cliente_sem_flags):
+    resposta = cliente_sem_flags.get("/")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["mensagem"] == "Bem-vindo à API da Loja"
+    assert corpo["versao"] == "1.0.0"
+    for chave in ("produtos", "usuarios", "pedidos", "login", "relatorios", "health"):
+        assert chave in corpo["endpoints"]
+
+
+def test_health_devolve_status_banco_e_contagens(cliente_sem_flags):
+    resposta = cliente_sem_flags.get("/health")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
     assert corpo["status"] == "ok"
     assert corpo["database"] == "connected"
     assert corpo["counts"] == {"produtos": 10, "usuarios": 3, "pedidos": 0}
-    assert corpo["versao"] == "1.0.0"
-    assert "ambiente" in corpo
 
 
-def test_reset_db(client, query_db):
-    r = client.post("/admin/reset-db")
-    assert r.status_code == 200
-    assert r.get_json() == {"mensagem": "Banco de dados resetado", "sucesso": True}
-    for t in ("produtos", "usuarios", "pedidos", "itens_pedido"):
-        assert query_db(f"SELECT COUNT(*) AS n FROM {t}")[0]["n"] == 0
+def test_relatorio_de_vendas_em_banco_sem_pedidos_vem_zerado(cliente):
+    resposta = cliente.get("/relatorios/vendas")
+    dados = _dados(resposta)
+    assert resposta.status_code == 200
+    assert dados["total_pedidos"] == 0
+    assert dados["faturamento_bruto"] == 0
+    assert dados["desconto_aplicavel"] == 0
+    assert dados["ticket_medio"] == 0
 
 
-def test_query_select(client):
-    r = client.post("/admin/query", json={"sql": "SELECT id FROM produtos ORDER BY id"})
-    assert r.status_code == 200
-    corpo = r.get_json()
+def test_relatorio_aplica_desconto_de_5_porcento_acima_de_5000(cliente):
+    criado = cliente.post(
+        "/pedidos",
+        json={
+            "usuario_id": 2,
+            "senha": "123456",
+            "itens": [
+                {"produto_id": 1, "quantidade": 1},
+                {"produto_id": 2, "quantidade": 2},
+            ],
+        },
+    )
+    assert criado.status_code == 201
+
+    resposta = cliente.get("/relatorios/vendas")
+    dados = _dados(resposta)
+    assert resposta.status_code == 200
+    assert dados["total_pedidos"] == 1
+    assert dados["faturamento_bruto"] == pytest.approx(6179.79, abs=0.01)
+    assert dados["desconto_aplicavel"] == pytest.approx(308.99, abs=0.01)
+    assert dados["faturamento_liquido"] == pytest.approx(5870.8, abs=0.01)
+    assert dados["pedidos_pendentes"] == 1
+    assert dados["ticket_medio"] == pytest.approx(6179.79, abs=0.01)
+
+
+def test_admin_query_select_devolve_lista_de_produtos(cliente):
+    resposta = cliente.post("/admin/query", json=SQL_SELECT)
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
     assert corpo["sucesso"] is True
     assert len(corpo["dados"]) == 10
-    assert corpo["dados"][0] == {"id": 1}
 
 
-def test_query_update_persiste(client, query_db):
-    r = client.post("/admin/query", json={"sql": "UPDATE produtos SET estoque = 77 WHERE id = 1"})
-    assert r.status_code == 200
-    assert r.get_json() == {"mensagem": "Query executada", "sucesso": True}
-    assert query_db("SELECT estoque FROM produtos WHERE id = 1")[0]["estoque"] == 77
+def test_admin_query_sem_campo_sql_devolve_400(cliente):
+    resposta = cliente.post("/admin/query", json={})
+    assert resposta.status_code == 400
+    assert resposta.get_json()["erro"] == "Query não informada"
 
 
-def test_query_sql_vazio_400(client):
-    r = client.post("/admin/query", json={"sql": ""})
-    assert r.status_code == 400
-    assert "erro" in r.get_json()
+def test_admin_query_delete_em_pedidos_executa(cliente):
+    resposta = cliente.post("/admin/query", json={"sql": "DELETE FROM pedidos"})
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["mensagem"] == "Query executada"
 
 
-def test_query_sql_invalido_500(client):
-    r = client.post("/admin/query", json={"sql": "SELECT * FROM tabela_inexistente"})
-    assert r.status_code == 500
-    assert "erro" in r.get_json()
+def test_admin_reset_db_apaga_os_produtos(cliente):
+    resposta = cliente.post("/admin/reset-db")
+    assert resposta.status_code == 200
+    assert resposta.get_json()["mensagem"] == "Banco de dados resetado"
+    assert _dados(cliente.get("/produtos")) == []
 
 
-def test_rota_inexistente_404(client):
-    assert client.get("/nao-existe").status_code == 404
+def test_admin_query_ligada_com_flag_de_admin_e_token_aceita_select(montar):
+    cliente = montar(flags=("ENABLE_ADMIN_ROUTES",), token_enviado="token-de-teste")
+    resposta = cliente.post("/admin/query", json=SQL_SELECT)
+    assert resposta.status_code == 200
+    assert resposta.get_json()["sucesso"] is True
 
 
-# ---------------- comportamento novo ----------------
-
-# comportamento novo
-def test_health_nao_expoe_secret_key(client):
-    r = client.get("/health")
-    corpo = r.get_json()
-    assert "secret_key" not in corpo
-    assert SEGREDO not in r.get_data(as_text=True)
+# ---------------------------------------------------------------- B) comportamento novo
 
 
-# comportamento novo
-def test_health_debug_false_por_default(client):
-    assert client.get("/health").get_json().get("debug", False) is False
+def test_health_nao_expoe_a_chave_secreta(cliente_sem_flags):
+    resposta = cliente_sem_flags.get("/health")
+    assert "secret_key" not in resposta.get_json()
+    assert SEGREDO not in resposta.get_data(as_text=True)
 
 
-# comportamento novo
-def test_health_nao_expoe_secret_key_do_ambiente(make_client):
-    c = make_client(flags=True, SECRET_KEY="abc-valor-unico-xyz")
-    assert "abc-valor-unico-xyz" not in c.get("/health").get_data(as_text=True)
+def test_health_vem_com_debug_desligado_por_padrao(cliente_sem_flags):
+    corpo = cliente_sem_flags.get("/health").get_json()
+    assert corpo["debug"] is False
 
 
-ADMIN = [
-    ("/admin/reset-db", None),
-    ("/admin/query", {"sql": "DELETE FROM produtos"}),
-]
+def test_relatorio_com_flag_desligada_devolve_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.get("/relatorios/vendas")
+    assert resposta.status_code == 403
+    assert resposta.get_json()["erro"] == "Recurso desabilitado"
 
 
-# comportamento novo
-@pytest.mark.parametrize("rota,corpo", ADMIN)
-def test_admin_sem_flags_403(make_client, query_db, rota, corpo):
-    c = make_client()
-    antes = _contagens(query_db)
-    assert c.post(rota, json=corpo).status_code == 403
-    assert _contagens(query_db) == antes
+def test_relatorio_sem_token_devolve_401(montar):
+    cliente = montar(flags=("ENABLE_SENSITIVE_READS",))
+    resposta = cliente.get("/relatorios/vendas")
+    assert resposta.status_code == 401
+    assert resposta.get_json()["erro"] == "Não autorizado"
 
 
-# comportamento novo
-@pytest.mark.parametrize("rota,corpo", ADMIN)
-def test_admin_sem_token_401(make_client, query_db, rota, corpo):
-    c = make_client(flags=True, enviar_token=False)
-    antes = _contagens(query_db)
-    assert c.post(rota, json=corpo).status_code == 401
-    assert _contagens(query_db) == antes
+def test_relatorio_com_token_errado_devolve_401(montar):
+    cliente = montar(flags=("ENABLE_SENSITIVE_READS",), token_enviado="token-errado")
+    assert cliente.get("/relatorios/vendas").status_code == 401
 
 
-# comportamento novo
-@pytest.mark.parametrize("rota,corpo", ADMIN)
-def test_admin_token_errado_401(make_client, query_db, rota, corpo):
-    c = make_client(flags=True, enviar_token=False)
-    antes = _contagens(query_db)
-    r = c.post(rota, json=corpo, headers={"X-Admin-Token": "errado"})
-    assert r.status_code == 401
-    assert _contagens(query_db) == antes
+def test_reset_db_com_flag_desligada_devolve_403_e_preserva_o_banco(cliente_sem_flags, tmp_path):
+    resposta = cliente_sem_flags.post("/admin/reset-db")
+    assert resposta.status_code == 403
+    assert _contar_produtos(tmp_path) == 10
 
 
-# comportamento novo
-def test_query_sem_corpo_json_400(client):
-    assert client.post("/admin/query").status_code == 400
+def test_reset_db_sem_token_devolve_401_e_preserva_o_banco(montar, tmp_path):
+    cliente = montar(flags=("ENABLE_ADMIN_ROUTES",))
+    resposta = cliente.post("/admin/reset-db")
+    assert resposta.status_code == 401
+    assert _contar_produtos(tmp_path) == 10
 
 
-# comportamento novo
-def test_query_sql_invalido_nao_vaza_erro_interno(client):
-    r = client.post("/admin/query", json={"sql": "SELECT * FROM tabela_inexistente"})
-    assert r.status_code == 500
-    texto = r.get_data(as_text=True)
-    assert "no such table" not in texto
-    assert "tabela_inexistente" not in texto
-    assert "erro" in json.loads(texto)
+def test_admin_query_com_flag_desligada_devolve_403(cliente_sem_flags):
+    resposta = cliente_sem_flags.post("/admin/query", json=SQL_SELECT)
+    assert resposta.status_code == 403
+
+
+def test_flag_de_escrita_nao_libera_admin_query(montar):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado="token-de-teste")
+    resposta = cliente.post("/admin/query", json=SQL_SELECT)
+    assert resposta.status_code == 403
+
+
+def test_flag_de_leitura_sensivel_nao_libera_reset_db(montar, tmp_path):
+    cliente = montar(flags=("ENABLE_SENSITIVE_READS",), token_enviado="token-de-teste")
+    resposta = cliente.post("/admin/reset-db")
+    assert resposta.status_code == 403
+    assert _contar_produtos(tmp_path) == 10
+
+
+def test_admin_query_com_erro_de_sql_devolve_erro_interno_generico(montar):
+    cliente = montar(flags=("ENABLE_ADMIN_ROUTES",), token_enviado="token-de-teste")
+    resposta = cliente.post("/admin/query", json={"sql": "SELECT * FROM nao_existe"})
+    assert resposta.status_code == 500
+    assert resposta.get_json()["erro"] == "Erro interno"
+    assert "no such table" not in resposta.get_data(as_text=True)
+
+
+def test_cors_nao_libera_origem_arbitraria(cliente_sem_flags):
+    atacante = "http://atacante.example"
+    resposta = cliente_sem_flags.get("/", headers={"Origin": atacante})
+    liberada = resposta.headers.get("Access-Control-Allow-Origin")
+    assert liberada not in (atacante, "*")

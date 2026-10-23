@@ -1,12 +1,22 @@
 from flask import jsonify
 
-from middlewares.conexao import conexao_atual
 from services import sistema_service
 
 
 def index():
-    return jsonify(sistema_service.info_api())
+    return jsonify({
+        "mensagem": "Bem-vindo à API da Loja",
+        "versao": "1.0.0",
+        "endpoints": {
+            "produtos": "/produtos",
+            "usuarios": "/usuarios",
+            "pedidos": "/pedidos",
+            "login": "/login",
+            "relatorios": "/relatorios/vendas",
+            "health": "/health"
+        }
+    })
 
 
 def health_check():
-    return jsonify(sistema_service.health(conexao_atual())), 200
+    return jsonify(sistema_service.status_banco()), 200

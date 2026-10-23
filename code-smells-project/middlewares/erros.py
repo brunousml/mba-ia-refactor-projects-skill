@@ -1,22 +1,27 @@
-"""T10: handler central. Erros HTTP do Flask passam como estão; o resto vira JSON."""
+"""Tratamento de erro central (T10). Erro de domínio vira a resposta dele; erro HTTP do framework
+passa sem mudança; qualquer outra falha vira 500 com mensagem genérica e log completo no servidor."""
 import logging
 
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
 
-from middlewares.conexao import desfazer_requisicao
-from services.erros import ErroDeNegocio
+from services.erros import ErroDominio
 
 logger = logging.getLogger(__name__)
 
 
 def registrar_erros(app):
+    @app.errorhandler(ErroDominio)
+    def erro_de_dominio(erro):
+        corpo = {"erro": str(erro)}
+        corpo.update(erro.corpo_extra)
+        return jsonify(corpo), erro.status
+
+    @app.errorhandler(HTTPException)
+    def erro_http(erro):
+        return erro
+
     @app.errorhandler(Exception)
-    def tratar_erro(erro):
-        if isinstance(erro, HTTPException):
-            return erro
-        desfazer_requisicao()  # escrita parcial não é gravada
-        if isinstance(erro, ErroDeNegocio):
-            return jsonify(erro.corpo()), erro.status
+    def erro_interno(erro):
         logger.exception("Erro não tratado")
-        return jsonify({"erro": "Erro interno do servidor"}), 500
+        return jsonify({"erro": "Erro interno"}), 500

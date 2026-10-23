@@ -1,46 +1,51 @@
 SECRET_KEY não definida; usando valor aleatório de desenvolvimento
-2026-10-22 16:03:46,223 INFO __main__: Servidor iniciado em http://0.0.0.0:5001 (debug=False)
+==================================================
+SERVIDOR INICIADO
+Rodando em http://localhost:5001
+==================================================
  * Serving Flask app 'app'
  * Debug mode: off
-2026-10-22 16:03:46,238 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2026-10-23 19:25:50,106 INFO werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5001
  * Running on http://192.168.1.245:5001
-2026-10-22 16:03:46,239 INFO werkzeug: [33mPress CTRL+C to quit[0m
-2026-10-22 16:03:49,961 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "GET / HTTP/1.1" 200 -
-2026-10-22 16:03:49,964 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "GET /health HTTP/1.1" 200 -
-2026-10-22 16:03:49,966 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "GET /produtos HTTP/1.1" 200 -
-2026-10-22 16:03:49,968 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "GET /produtos/busca?q=mouse HTTP/1.1" 200 -
-2026-10-22 16:03:49,970 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "GET /produtos/busca?categoria=informatica&preco_min=100&preco_max=500 HTTP/1.1" 200 -
-2026-10-22 16:03:49,971 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "GET /produtos/1 HTTP/1.1" 200 -
-2026-10-22 16:03:49,973 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[33mGET /produtos/9999 HTTP/1.1[0m" 404 -
-2026-10-22 16:03:49,975 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,976 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,979 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,980 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,981 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPUT /produtos/1 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,983 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPUT /produtos/9999 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,984 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPUT /produtos/1 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,985 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mGET /usuarios HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,987 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mGET /usuarios/1 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,988 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mGET /usuarios/9999 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,989 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPOST /usuarios HTTP/1.1[0m" 403 -
-2026-10-22 16:03:49,991 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:49] "[31m[1mPOST /usuarios HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,044 INFO services.usuario_service: Login bem-sucedido: usuario_id=2
-2026-10-22 16:03:50,045 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "POST /login HTTP/1.1" 200 -
-2026-10-22 16:03:50,099 INFO services.usuario_service: Login falhou
-2026-10-22 16:03:50,100 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /login HTTP/1.1[0m" 401 -
-2026-10-22 16:03:50,101 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /login HTTP/1.1[0m" 400 -
-2026-10-22 16:03:50,103 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /pedidos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,104 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /pedidos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,106 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /pedidos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,108 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mGET /pedidos HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,109 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mGET /pedidos/usuario/2 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,110 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPUT /pedidos/1/status HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,113 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPUT /pedidos/1/status HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,114 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mGET /relatorios/vendas HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,116 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mDELETE /produtos/11 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,118 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mDELETE /produtos/9999 HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,119 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /admin/query HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,121 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /admin/query HTTP/1.1[0m" 403 -
-2026-10-22 16:03:50,123 INFO werkzeug: 127.0.0.1 - - [22/Oct/2026 16:03:50] "[31m[1mPOST /admin/reset-db HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,106 INFO werkzeug: [33mPress CTRL+C to quit[0m
+2026-10-23 19:25:50,563 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET /health HTTP/1.1" 200 -
+2026-10-23 19:25:50,703 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET / HTTP/1.1" 200 -
+2026-10-23 19:25:50,705 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET /health HTTP/1.1" 200 -
+2026-10-23 19:25:50,707 INFO controllers.produto_controller: Listando 10 produtos
+2026-10-23 19:25:50,707 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET /produtos HTTP/1.1" 200 -
+2026-10-23 19:25:50,709 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET /produtos/busca?q=mouse HTTP/1.1" 200 -
+2026-10-23 19:25:50,710 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET /produtos/busca?categoria=informatica&preco_min=100&preco_max=500 HTTP/1.1" 200 -
+2026-10-23 19:25:50,712 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "GET /produtos/1 HTTP/1.1" 200 -
+2026-10-23 19:25:50,713 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[33mGET /produtos/9999 HTTP/1.1[0m" 404 -
+2026-10-23 19:25:50,715 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,716 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,717 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,718 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /produtos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,720 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPUT /produtos/1 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,721 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPUT /produtos/9999 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,722 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPUT /produtos/1 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,724 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mGET /usuarios HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,725 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mGET /usuarios/1 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,727 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mGET /usuarios/9999 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,728 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /usuarios HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,730 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /usuarios HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,780 INFO controllers.usuario_controller: Login bem-sucedido: usuario_id=2
+2026-10-23 19:25:50,780 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "POST /login HTTP/1.1" 200 -
+2026-10-23 19:25:50,830 INFO controllers.usuario_controller: Login falhou
+2026-10-23 19:25:50,831 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /login HTTP/1.1[0m" 401 -
+2026-10-23 19:25:50,833 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /login HTTP/1.1[0m" 400 -
+2026-10-23 19:25:50,834 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /pedidos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,836 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /pedidos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,837 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /pedidos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,839 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mGET /pedidos HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,840 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mGET /pedidos/usuario/2 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,841 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPUT /pedidos/1/status HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,842 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPUT /pedidos/1/status HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,844 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mGET /relatorios/vendas HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,845 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mDELETE /produtos/11 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,846 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mDELETE /produtos/9999 HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,848 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /admin/query HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,849 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /admin/query HTTP/1.1[0m" 403 -
+2026-10-23 19:25:50,850 INFO werkzeug: 127.0.0.1 - - [23/Oct/2026 19:25:50] "[31m[1mPOST /admin/reset-db HTTP/1.1[0m" 403 -

@@ -1,0 +1,91 @@
+A validação do grupo 4 ficou fechada, mas o resultado final é **VALIDATION FAILED**, por uma única pendência, que é a decisão de manter as senhas de exemplo fora de produção.
+
+```
+================================
+VALIDATION FAILED
+================================
+C1 CRITICAL/HIGH resolvidos   ✗  (AP-01 residual: literais de senha de exemplo em models/database.py:103-105, só fora de produção)
+C2 Rotas protegidas (T08)      ✓  (19 rotas, 13 guardadas; 6 sem guard: /health, /, /login, GET /produtos, GET /produtos/busca, GET /produtos/<id>)
+C3 Comportamento               ✓  (off: 38 divergências, todas intencionais; on: 13, todas intencionais; on igual ao grupo 4)
+C4 Testes                      ✓  (105 testes, 105 verdes; rotas cobertas 19/19; sem skip/xfail)
+C5 Box coerente                ✓  (box abaixo: "Zero CRITICAL/HIGH" marcado ✗ e coerente com C1)
+
+## Pendências
+- [CRITICAL] AP-01 — models/database.py:103-105 — as senhas de exemplo (admin123, 123456, senha123) continuam no código. Só são usadas quando APP_ENV != production. Você decidiu manter assim. Para a validação passar, preciso da frase explícita de aceite do risco, que vai para "Intentional changes".
+================================
+```
+
+## Box de saída (3.7)
+
+```
+================================
+PHASE 3: REFACTORING COMPLETE (com pendência de aceite)
+================================
+## New Project Structure
+code-smells-project/
+├── app.py                       entry point: config, CORS, erro central, rotas, init do banco
+├── config/settings.py           configuração do ambiente (SECRET_KEY, flags, ADMIN_TOKEN, CORS)
+├── config/regras.py             constantes de regra (categorias, status, faixas de desconto)
+├── controllers/                 HTTP: lê a requisição, valida, chama serviço, escolhe status
+│   ├── validadores.py           validação de entrada e regra compartilhada de produto
+│   └── (produto|usuario|pedido|relatorio|sistema|admin)_controller.py
+├── middlewares/guards.py        flags T08 (403 desligada, 401 sem token certo)
+├── middlewares/erros.py         erro central (ErroDominio, HTTP, 500 genérico)
+├── models/                      acesso a dados, consultas parametrizadas
+│   ├── database.py              conexão por requisição (flask.g) e seed
+│   └── (produto|usuario|pedido|sistema|admin)_model.py
+├── routes/                      só registro de método + caminho + guard
+├── serializers/usuario_serializer.py   campos públicos (sem senha)
+├── services/                    regra de negócio e erros de domínio
+├── utils/senha.py               hash scrypt com salt
+├── tests/                       105 testes (conftest + 4 domínios)
+├── .env.example, README.md, requirements.txt, requirements-dev.txt
+
+## Validation
+  ✓ Application boots without errors (dev com flags, dev sem flags, produção)
+  ✓ All endpoints respond correctly (flags ligadas: 34/47 iguais ao snapshot, 13 mudanças intencionais; flags desligadas: 9/47 iguais, 38 mudanças intencionais)
+  ✓ Tests written before refactor: 105 (49 caracterização, 56 comportamento novo); antes 49 verdes / 52 vermelhos; depois 105/105 verdes
+  ✗ Zero CRITICAL/HIGH remaining (validate-refactor: FAILED; AP-01 aceito pelo usuário, falta frase explícita)
+
+## MVC checklist
+  ✓ Configuração extraída para módulo de config (sem hardcoded)  — exceção: literais do seed de dev (AP-01, aceito)
+  ✓ Models abstraem o acesso a dados
+  ✓ Views/Routes só fazem roteamento (guards são aplicados na própria rota)
+  ✓ Controllers concentram o fluxo da aplicação
+  ✓ Error handling centralizado
+  ✓ Entry point claro (compõe a aplicação)
+
+## Intentional changes
+- /health: `secret_key` removida; `debug` vem de DEBUG (default false). (T01, T18)
+- Guards T08: GET /usuarios, GET /usuarios/<id>, GET /pedidos, GET /pedidos/usuario/<id>, GET /relatorios/vendas exigem ENABLE_SENSITIVE_READS; POST/PUT/DELETE de produtos, POST /pedidos, PUT /pedidos/<id>/status exigem ENABLE_WRITE_ROUTES; POST /usuarios exige ENABLE_WRITE_ROUTES (decisão do usuário); POST/PUT/DELETE de admin exigem ENABLE_ADMIN_ROUTES. Com a flag desligada: 403; ligada sem token certo: 401. (T08)
+- POST /usuarios deixa de ser cadastro público: com as flags desligadas, 201/400 viram 403. (decisão do usuário)
+- GET /usuarios e GET /usuarios/<id>: campo `senha` removido da resposta. (T05)
+- POST /pedidos: a conta é a de `usuario_id` e a `senha` dela é obrigatória; sem senha ou com senha errada, 401 e nada é gravado. (T08)
+- POST /pedidos com quantidade <= 0, quantidade ou ids não inteiros: 400 (antes aceitava e a quantidade negativa aumentava o estoque com total negativo). (T17)
+- PUT /produtos: categoria inválida e nome curto/longo passam a responder 400 (antes 200); regra de cadastro unificada entre criar e atualizar. (T16)
+- Entradas inválidas que antes geravam 500 agora geram 400: busca com preco_min/preco_max não numérico, corpo JSON ausente ou malformado em POST /produtos, /login, /usuarios e /admin/query. (T17)
+- Erro não tratado: 500 com mensagem genérica "Erro interno"; detalhe só no log. (T10)
+- Senhas gravadas como hash scrypt (cadastro e seed). Banco `loja.db` de versão antiga precisa ser recriado. (T04)
+- Seed: usuários de exemplo só são criados fora de APP_ENV=production; senhas de exemplo mantidas fora de produção. (AP-01, decisão do usuário)
+- CORS: nenhuma origem liberada por padrão (CORS_ORIGINS vazio). (T18)
+- Banco inicializado na construção do app, além do bloco __main__. Conexão aberta por requisição. (T07)
+- Testes: 6 testes de caracterização de cadastro de usuário passam a usar a flag ligada e o token (precondição mudou com a decisão 2), e um foi renomeado. Teste unitário do serviço de pedidos roda dentro do contexto da aplicação, porque o banco vem de flask.g. Nenhuma asserção foi afrouxada.
+- Cascata: GET /pedidos, GET /pedidos/usuario/2 e GET /relatorios/vendas mudam porque o pedido de quantidade negativa deixou de ser criado.
+- Preservado de propósito: POST /admin/query continua executando o SQL do corpo, atrás de ENABLE_ADMIN_ROUTES e X-Admin-Token. T02 aceita o guard como solução.
+- Preservado de propósito: POST /login continua sem guard e não devolve token. Nenhuma rota depende dele.
+- Preservado de propósito: cancelar pedido não devolve estoque, embora a mensagem de log diga "Devolver estoque" (services/pedido_service.py). Bug de regra fora do catálogo, mantido para não mudar o comportamento.
+- Aceite do risco (AP-01): literais de senha de exemplo no seed de dev (models/database.py:103-105). Aceite explícito pendente.
+
+## Anti-patterns remaining
+- AP-08 (MEDIUM): criar_pedido consulta o produto duas vezes por item (services/pedido_service.py:20 e :29). Não foi aplicado T09 nesse caminho, porque o laço é sobre itens da requisição, não sobre resultado de consulta.
+- AP-11 (LOW): status 'pendente' como literal SQL (models/pedido_model.py:8, :82) e versão "1.0.0" repetida (controllers/sistema_controller.py:9, services/sistema_service.py:11).
+- AP-12 (LOW): parâmetro `id` em rotas e controllers (nome curto); banner de boot com print em app.py:26-29 (não é log).
+================================
+```
+
+**Observações:**
+
+- Mudei seis testes de caracterização de cadastro (precondição e um nome). Isso precisa ficar registrado, como está acima.
+- Para fechar a Fase 3, falta só a sua frase explícita de aceite do risco de AP-01 (as senhas de exemplo de dev). Com ela, registro em "Intentional changes" e reviso a validação.
+- **Servidores:** os processos 84290, 84294 e 84297 (portas 5070 a 5072) continuam rodando. O `kill` foi bloqueado de novo pela permissão, então não encerrei. Para encerrar, rode: `kill 84290 84294 84297`.
+exit=0
