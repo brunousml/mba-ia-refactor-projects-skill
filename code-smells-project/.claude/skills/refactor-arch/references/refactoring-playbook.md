@@ -533,7 +533,7 @@ router.post('/faturas', exigirEscrita, faturaController.criar);
 
 `ADMIN_TOKEN` é obrigatório (T01) quando qualquer uma das três flags estiver ligada.
 
-**Conta existente identificada pelo corpo.** Se a rota reaproveita uma conta pelo e-mail ou id enviado, confira a senha enviada contra o hash (T04) e responda 401 se faltar ou não bater. Isso preserva o contrato de quem já mandava a senha certa.
+**Conta existente identificada pelo corpo.** Se a rota reaproveita uma conta pelo e-mail ou id enviado **e o contrato original já envia a senha**, confira a senha contra o hash (T04) e responda 401 se faltar ou não bater; quem mandava a senha certa não percebe a mudança. Se o contrato não tem credencial do dono, não invente uma: o guard de escrita com o token já limita quem age em nome da conta.
 
 ```js
 const user = await userModel.findByEmail(db, email);

@@ -116,7 +116,7 @@ Nomes de caminho e de função que costumam indicar isso: `admin`, `reset`, `dro
 
 Também se aplica (HIGH) ao "login" que devolve um token que nenhuma outra rota verifica: não existe autenticação real.
 
-Também se aplica (HIGH) à operação que age sobre uma conta **existente** identificada só por e-mail ou id vindo do corpo, sem conferir senha ou token do dono (ex.: checkout que reaproveita o usuário pelo e-mail e ignora a senha). O guard do T08 não basta: confira a credencial do dono quando a conta já existe.
+Também se aplica (HIGH) à operação que age sobre uma conta **existente** identificada só por e-mail ou id vindo do corpo, sem conferir senha ou token do dono (ex.: checkout que reaproveita o usuário pelo e-mail e ignora a senha). Se o contrato original já envia a senha do dono, confira-a (o guard do T08 sozinho não basta). Se o contrato não tem nenhuma credencial do dono, o guard do T08 resolve: só quem tem o token de administração age em nome da conta. Exigir uma credencial nova quebraria todos os clientes, então registre a decisão em "Intentional changes".
 
 **Correção:** T08, com o guard que corresponde ao sinal: administração (reset, SQL, relatório), leitura sensível (dados pessoais ou financeiros) ou escrita (demais POST/PUT/PATCH/DELETE). O login falso é resolvido protegendo as rotas que deveriam depender dele.
 
