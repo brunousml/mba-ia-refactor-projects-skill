@@ -1,11 +1,11 @@
 // Sobe a aplicação como processo filho (o entry point original chama listen ao ser carregado).
 // Cada chamada parte de um banco novo, porque o SQLite é em memória e o seed roda no boot.
-// A porta do original é fixa em 3000; por isso a suíte roda com --test-concurrency=1.
+// A porta é efêmera (o SO escolhe uma livre a cada boot); a suíte segue com --test-concurrency=1.
 const { spawn } = require('node:child_process');
+const net = require('node:net');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const PORT = 3000;
 const ADMIN_TOKEN = 'test-admin-token';
 
 // Ambiente que reproduz o comportamento original nas rotas guardadas pelo T08.
@@ -16,7 +16,19 @@ const FLAGS_ON = {
   ADMIN_TOKEN,
 };
 
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
 async function startServer(env = FLAGS_ON) {
+  const PORT = await freePort();
   const child = spawn(process.execPath, ['src/app.js'], {
     cwd: ROOT,
     env: { PATH: process.env.PATH, PORT: String(PORT), ...env },
