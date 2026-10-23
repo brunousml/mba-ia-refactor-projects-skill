@@ -101,3 +101,43 @@ def test_report_service_user_report_inexistente(ctx):
 
     with pytest.raises(NotFoundError):
         report_service.user_report(9999)
+
+
+# ---------------------------------------------------------------- papel (AP-15)
+
+NOVO_ADMIN = {"name": "Novo Admin", "email": "novo.admin@example.com", "password": "senha123", "role": "admin"}
+
+
+def test_user_service_create_user_role_admin_sem_permissao_lanca_403(ctx):
+    from services import user_service
+    from services.errors import DomainError
+
+    with pytest.raises(DomainError) as exc:
+        user_service.create_user(dict(NOVO_ADMIN), requester_is_admin=False)
+    assert exc.value.status == 403
+    assert str(exc.value) == "Sem permissão para definir papel"
+
+
+def test_user_service_update_user_role_admin_sem_permissao_lanca_403(ctx):
+    from services import user_service
+    from services.errors import DomainError
+
+    with pytest.raises(DomainError) as exc:
+        user_service.update_user(2, {"role": "admin"}, requester_is_admin=False)
+    assert exc.value.status == 403
+    assert str(exc.value) == "Sem permissão para definir papel"
+
+
+def test_user_service_create_user_role_admin_com_permissao_cria(ctx):
+    from services import user_service
+
+    user = user_service.create_user(dict(NOVO_ADMIN), requester_is_admin=True)
+    assert user.role == "admin"
+    assert user.email == NOVO_ADMIN["email"]
+
+
+def test_user_service_update_user_role_admin_com_permissao_atualiza(ctx):
+    from services import user_service
+
+    user = user_service.update_user(2, {"role": "admin"}, requester_is_admin=True)
+    assert user.role == "admin"

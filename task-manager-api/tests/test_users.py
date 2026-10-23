@@ -338,6 +338,7 @@ def test_t08_update_user_no_token(flags_client):
 def test_t08_update_user_wrong_token(wrong_token_client):
     r = wrong_token_client.put("/users/2", json={"role": "admin"})
     assert r.status_code == 401
+    assert r.get_json() == UNAUTH
 
 
 # T08 admin
@@ -386,3 +387,13 @@ def test_t17_create_user_int_name(admin_client):
     r = admin_client.post("/users", json=_new_user(name=123))
     assert r.status_code == 400
     assert "error" in r.get_json()
+
+
+@pytest.mark.new_behavior
+def test_t08_delete_user_wrong_token(wrong_token_client, db_session):
+    from models.user import User
+    r = wrong_token_client.delete("/users/2")
+    assert r.status_code == 401
+    assert r.get_json() == UNAUTH
+    db_session.expire_all()
+    assert db_session.get(User, 2) is not None

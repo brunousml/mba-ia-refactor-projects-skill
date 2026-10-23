@@ -141,7 +141,9 @@ def test_summary_sem_token_401(flags_client):
 
 @pytest.mark.new_behavior
 def test_summary_token_errado_401(wrong_token_client):
-    assert wrong_token_client.get("/reports/summary").status_code == 401
+    r = wrong_token_client.get("/reports/summary")
+    assert r.status_code == 401
+    assert r.get_json() == {"error": "Não autorizado"}
 
 
 @pytest.mark.new_behavior
@@ -154,6 +156,13 @@ def test_user_report_admin_desligado_403(client):
 @pytest.mark.new_behavior
 def test_user_report_sem_token_401(flags_client):
     r = flags_client.get("/reports/user/1")
+    assert r.status_code == 401
+    assert r.get_json() == {"error": "Não autorizado"}
+
+
+@pytest.mark.new_behavior
+def test_user_report_token_errado_401(wrong_token_client):
+    r = wrong_token_client.get("/reports/user/1")
     assert r.status_code == 401
     assert r.get_json() == {"error": "Não autorizado"}
 

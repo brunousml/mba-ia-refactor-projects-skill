@@ -221,3 +221,13 @@ def test_update_category_invalid_color(admin_client, db_session):
     assert "error" in resp.get_json()
     db_session.expire_all()
     assert db_session.get(Category, 1).color != "xyz"
+
+
+@pytest.mark.new_behavior
+def test_update_category_wrong_token(wrong_token_client, db_session):
+    original = db_session.get(Category, 1).name
+    resp = wrong_token_client.put("/categories/1", json={"name": "Alterada"})
+    assert resp.status_code == 401
+    assert resp.get_json() == {"error": "Não autorizado"}
+    db_session.expire_all()
+    assert db_session.get(Category, 1).name == original
