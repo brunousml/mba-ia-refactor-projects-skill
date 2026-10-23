@@ -4,19 +4,102 @@ Atualizado ao fim de cada etapa. O plano do desafio e o plano de execução fica
 
 ## Estado atual
 
-**Entrega pronta localmente.** Os 3 projetos foram refatorados e verificados, o [README](../README.md) foi escrito e o `CLAUDE.md` restaurado. Falta só o push, que depende de confirmação.
+**Rodada 2 em andamento: ajustes pedidos na revisão da entrega (status na plataforma: "Revisão necessária, ajustando").** A revisão apontou que a Fase 3 fechava com AP-07 parcial no P1 e no P3: leituras sensíveis e escritas sem autenticação, com ✗ em "Zero anti-patterns remaining". A skill foi endurecida e os 3 projetos estão sendo refeitos **a partir do código original**, com TDD.
 
 | Etapa | Status | Artefato |
 | --- | --- | --- |
-| 0. Preparação | Feito | `docs/`, `scripts/`, [`reports/`](../reports/) |
-| 1. Linha de base | Feito (P1, P2, P3) | [`docs/baseline/`](baseline/) |
-| 2. Análise manual | Feito e revisado | [`docs/analise-manual.md`](analise-manual.md) |
-| 3. Skill | v2 (pós-revisão) | [`code-smells-project/.claude/skills/refactor-arch/`](../code-smells-project/.claude/skills/refactor-arch/) |
-| 3b. Revisão do checkpoint 1 | Feito | ver "Revisão do checkpoint 1" abaixo |
-| 4. Projeto 1 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-1.md), [log 1–2](runs/project-1/phase-1-2.log), [log 3](runs/project-1/phase-3.log), [after](runs/project-1/after.json), [diff](runs/project-1/diff.md), [server](runs/project-1/after-server.log) |
-| 5. Projeto 2 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-2.md), [log 1–2](runs/project-2/phase-1-2.log), [log 3](runs/project-2/phase-3.log), [diff](runs/project-2/diff.md), [diff admin ligado](runs/project-2/diff-admin-on.md) |
-| 6. Projeto 3 | Feito (Fases 1–3 + verificação) | [relatório](../reports/audit-project-3.md), [log 1–2](runs/project-3/phase-1-2.log), [log 3](runs/project-3/phase-3.log), [diff](runs/project-3/diff.md), [diff admin ligado](runs/project-3/diff-admin-on.md) |
-| 7. Fechamento e README | Feito (falta o push) | [README](../README.md), [enunciado original](ENUNCIADO.md) |
+| R2.1 Skill: Fase 3 não fecha com CRITICAL/HIGH | Feito | `refactor-arch/SKILL.md` (3.6 Pendências, 3.7 Saída) |
+| R2.2 T08 com 3 guards por flag | Feito | `references/refactoring-playbook.md` (T08), `anti-patterns-catalog.md` (AP-07) |
+| R2.3 TDD na Fase 3, testes escritos por subagentes | Feito | `SKILL.md` 3.2, `references/testing-guidelines.md` |
+| R2.4 Skill `validate-refactor` (C1–C5) | Feito | `.claude/skills/validate-refactor/SKILL.md` |
+| R2.5 Revisão da skill por subagente (8 brechas) | Feito, todas fechadas | ver "Rodada 2: revisão por subagentes" |
+| P2 refeito | **Feito e commitado** | [relatório](../reports/audit-project-2.md), [log 3](runs/project-2/phase-3.log), [diff off](runs/project-2/diff.md), [diff on](runs/project-2/diff-flags-on.md) |
+| P3 refeito | **Rodando** (Fases 1–2 concluídas com 15 findings; Fase 3 com testes já escritos) | [log 1–2](runs/project-3/phase-1-2.log) |
+| P1 refeito | Commitado com a skill **anterior** às correções das brechas; **será rodado de novo** depois do P3 (os dois usam a porta 5001) | [log 3](runs/project-1/phase-3.log) |
+| Revisão por subagente de P1 e P2 | Feito (P1: só LOW; P2: 1 HIGH, corrigido) | — |
+| Revisão por subagente do P3 e do novo P1 | Pendente | — |
+| Relatórios, README e commits finais | Pendente | — |
+| Reenviar a URL na plataforma | Pendente (manual, feito pelo usuário) | — |
+
+## Rodada 2: o que mudou na skill
+
+As 3 cópias de `.claude/skills/` (refactor-arch + validate-refactor) continuam idênticas (`diff -r` vazio).
+
+- **Fase 3 só fecha sem CRITICAL/HIGH (3.6).**
+  - A lista de pendências reúne os findings do relatório, os sinais do catálogo encontrados no código novo (mesmo que o relatório não os tenha registrado), os testes vermelhos e os ✗ do checklist.
+  - Com CRITICAL/HIGH na lista, a skill volta ao playbook ou para e pede decisão ao usuário.
+  - Risco aceito pelo usuário marca ✗ no box. "Anti-patterns remaining" só aceita MEDIUM/LOW.
+- **T08 virou "guards de acesso por flag".** Uma fábrica gera os três guards:
+  - `ENABLE_ADMIN_ROUTES`: reset, SQL, relatório, exclusão em massa;
+  - `ENABLE_SENSITIVE_READS`: dados pessoais ou financeiros;
+  - `ENABLE_WRITE_ROUTES`: POST, PUT, PATCH e DELETE comuns.
+
+  Com a flag desligada a rota responde 403; ligada, exige `X-Admin-Token` em tempo constante e responde 401 sem ele.
+
+  O T08 também cobre a conta existente identificada só pelo corpo da requisição: a senha precisa ser conferida.
+- **TDD (3.2), antes de qualquer mudança no código de produção.**
+  - Subagentes em paralelo, um por domínio, escrevem os testes de **caracterização** (verdes no original, pela interface HTTP) e os de **comportamento novo** (vermelhos no original).
+  - Ao criar um serviço ou model, o teste unitário vem antes do código.
+  - A suíte roda depois de cada grupo de transformações. A saída é gravada em `suite-original.txt` e `suite-grupo-1..4.txt`, no diretório de trabalho.
+- **`validate-refactor`** (somente leitura) confere:
+  - C1: os CRITICAL/HIGH foram resolvidos, com varredura do catálogo inteiro;
+  - C2: cada rota tem o guard certo;
+  - C3: o comportamento com flags off e on;
+  - C4: a evidência dos testes;
+  - C5: o box é coerente com as checagens.
+
+  Ela precisa ser chamada pela ferramenta Skill; aplicar as checagens à mão não vale como PASSED.
+- **Box de saída.** Ganhou a linha de testes (contagem antes e depois). "Intentional changes" passa a incluir também o comportamento arriscado preservado de propósito.
+
+## Rodada 2: revisão por subagentes
+
+| Revisor | Achados | O que foi feito |
+| --- | --- | --- |
+| Skill | 8 brechas. As principais: a validate-refactor podia ser "simulada" à mão, a suíte por grupo não deixava evidência e o diretório de trabalho não chegava à validate-refactor | Todas fechadas no commit `fix(skill): fecha brechas da revisão…` |
+| P1 (execução com a skill anterior) | Nenhum CRITICAL/HIGH. 3 LOW: token errado só testado no admin, comportamento preservado fora do box, grupos não validados um a um | Viraram regras da skill (testing-guidelines e box). O P1 será refeito |
+| P2 | **HIGH**: o checkout reaproveitava a conta pelo e-mail sem conferir a senha, e a nova auditoria não registrou o problema. MEDIUM: faltava teste com token errado | Catálogo (AP-07) e T08 passaram a cobrir o sinal. O código foi corrigido em **TDD**: testes vermelhos primeiro, depois o código |
+
+## Rodada 2: resultados por projeto
+
+| Projeto | Testes | Flags off | Flags on + token | Observação |
+| --- | --- | --- | --- | --- |
+| P2 | `npm test` 70/70 (38 escritos antes da refatoração; os demais são unitários das camadas novas e da correção do checkout) | 7 divergências, todas 403 intencionais | **0 divergências** | validate-refactor PASSED. Restam 2 MEDIUM: DELETE de id inexistente → 200 e checkout fora de transação |
+| P1 (versão a refazer) | `pytest` 129/129 | 26 (25×403 + `/health` sem `secret_key`) | 4, as mesmas da rodada 1 | 13 rotas guardadas. Ficam públicas: `/`, `/health`, os GET de produtos e `/login` |
+| P3 | — | — | — | rodando |
+
+Ferramentas novas:
+- `scripts/run-skill.sh` roda as Fases 1–3 em headless; `scripts/run-phase3.sh` retoma só a Fase 3.
+- `scripts/with-token.py` gera a variante "flags on" das chamadas, com `X-Admin-Token` em todas.
+
+Validação com flags on: `ENABLE_ADMIN_ROUTES=true ENABLE_SENSITIVE_READS=true ENABLE_WRITE_ROUTES=true ADMIN_TOKEN=tok123`.
+
+## Rodada 2: incidentes
+
+- **Limite de uso interrompeu as execuções headless 4 vezes.** As retomadas foram de dois tipos:
+  - com `--continue`, quando a sessão estava num ponto limpo;
+  - do zero, a partir do código original, quando o estado ficou inconsistente. No P3, código de produção apareceu enquanto os subagentes de teste ainda rodavam, e os `.py` dos testes sumiram.
+- **Um commit do P2 levou junto o estado intermediário do P1**, que estava no índice desde o `git checkout <commit>^ -- <projeto>`. Foi desfeito e refeito, antes de qualquer push.
+  - Lição: depois de restaurar um projeto com `git checkout`, rodar `git reset -q HEAD -- <projeto>`.
+  - Lição: commitar com `git add <caminhos>`, nunca com `-A`.
+- **`node --test tests/` falha no Node 24.** A `testing-guidelines.md` passou a usar `node --test 'tests/**/*.test.js'` (via `npm test`).
+- **Identidade git corrigida.** A config global estava com outra identidade. Agora global e local estão como `Bruno Melo <brunousml@gmail.com>`, e os 7 commits locais da rodada 2 foram reescritos com `commit-tree`, sem alterar árvore, mensagens ou datas.
+- **Desvio de processo observado nas execuções.** O agente aplicava os 4 grupos de uma vez, alegando que o projeto era pequeno. A regra agora proíbe isso explicitamente e exige `suite-grupo-<n>.txt`.
+
+## Próximo passo
+
+1. Esperar o P3 terminar. Depois: verificação externa (pytest, `smoke.py`/`compare.py` com flags off e on) e checagem de pendências.
+2. Incluir na skill a regra "nenhum código de produção antes de todos os subagentes de teste terminarem e o `suite-original.txt` estar gravado" (vem do incidente do P3).
+3. Restaurar o P1 para o código original (`git checkout 0686c43^ -- code-smells-project`, preservando `.claude/`) e rodar de novo com `scripts/run-skill.sh`.
+4. Revisão por subagentes do P3 e do novo P1. Corrigir os achados em TDD.
+5. Atualizar `reports/audit-project-{1,3}.md` (o P2 já está atualizado), o README (tabelas de validação, mudanças intencionais, a ressalva de AP-07 parcial, checklist) e este handoff.
+6. Commits por etapa. Depois, push com confirmação do usuário.
+7. O usuário reenvia a URL na plataforma.
+
+---
+
+# Histórico: Rodada 1 (entrega original)
+
+> Os logs, `after*.json` e diffs citados abaixo foram substituídos pelos da rodada 2, e os `*-admin-on*` viraram `*-flags-on*`. As versões da rodada 1 estão no commit `ed3a7d1` (`git show ed3a7d1:docs/runs/project-N/<arquivo>`).
 
 ## Linha de base
 
@@ -215,7 +298,7 @@ A skill deixou o app original no ar na 5001 (o `kill` foi negado no headless), i
 - O enunciado original foi movido para [`docs/ENUNCIADO.md`](ENUNCIADO.md). O [`README.md`](../README.md) passou a ser a documentação da entrega, com as seções A) Análise Manual, B) Construção da Skill, C) Resultados (com o checklist preenchido para os 3 projetos) e D) Como Executar.
 - O `CLAUDE.md` da raiz foi restaurado. Continua no `.gitignore`.
 
-## Próximo passo
+## Próximo passo (rodada 1)
 
 1. `git push` do fork, com confirmação do usuário.
 2. Atualizar o repositório `mba` (`README.md` e `docs/contexto/decisoes.md`) com o status e o link do handoff.
