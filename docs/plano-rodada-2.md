@@ -17,7 +17,7 @@ A skill é a mesma nos 3 projetos. Edito uma cópia, sincronizo as outras e conf
   - 3.4: a suíte roda depois de cada grupo de transformações, com a saída em `suite-grupo-<n>.txt`. Aplicar os 4 grupos de uma vez não é permitido.
   - 3.6: pendências. Com CRITICAL ou HIGH na lista, a skill volta ao playbook ou para e pede decisão ao usuário. A lista inclui os sinais do catálogo achados no código novo, mesmo os que o relatório não registrou.
   - 3.7: "Anti-patterns remaining" só aceita MEDIUM e LOW. O box ganha a linha de testes.
-- `refactoring-playbook.md`, T08: guards de acesso por flag (`ENABLE_ADMIN_ROUTES`, `ENABLE_SENSITIVE_READS`, `ENABLE_WRITE_ROUTES`), gerados por uma única fábrica. Desligada, a rota responde 403; ligada, exige `X-Admin-Token` em tempo constante. Quando a rota reaproveita uma conta existente pelo corpo, confere a senha.
+- `refactoring-playbook.md`, T08: guards de acesso por flag (`ENABLE_ADMIN_ROUTES`, `ENABLE_SENSITIVE_READS`, `ENABLE_WRITE_ROUTES`), gerados por uma única fábrica. Desligada, a rota responde 403; ligada, exige `X-Admin-Token` em tempo constante. Quando a rota reaproveita uma conta existente pelo corpo e o contrato já envia a senha, confere a senha; sem credencial no contrato, o guard de escrita basta.
 - `anti-patterns-catalog.md`, AP-07: a correção indica qual guard usar, e a conta existente identificada pelo corpo sem credencial entra como HIGH.
 - `testing-guidelines.md` (nova): framework por stack, isolamento do banco, o que cobrir (inclusive token errado por flag).
 - `validate-refactor` (skill nova, somente leitura): checagens C1 a C5 (CRITICAL/HIGH resolvidos, guards por rota, comportamento com flags off e on, evidência dos testes, coerência do box). A refactor-arch a chama pela ferramenta Skill, e checagem feita à mão não vale como PASSED.
@@ -61,10 +61,10 @@ O usuário reenvia a URL na plataforma e atualiza o status para "Revisão necess
 
 | Passo | Situação |
 |---|---|
-| 1. Skill | Feito, com as brechas da revisão fechadas |
-| 2. P2 | Feito e commitado (70/70 testes, 0 divergências com flags on) |
-| 2. P3 | Feito e commitado (184/184 testes, só a remoção de `password` com flags on) |
-| 2. P1 | Rodando com a skill atual |
-| 3. Revisão | Skill, P1 (versão anterior) e P2 feitas; P3 em andamento; novo P1 pendente |
-| 4. Documentação | HANDOFF e este plano atualizados; README pendente |
+| 1. Skill | Feito, com as brechas da revisão fechadas e a regra da conta existente restrita ao contrato que já envia a senha |
+| 2. P2 | Feito e commitado (80/80 testes, 0 divergências com flags on) |
+| 2. P3 | Feito e commitado (195/195 testes, só a remoção de `password` com flags on) |
+| 2. P1 | Feito e commitado (105/105 testes, 4 divergências documentadas com flags on) |
+| 3. Revisão | Skill, P2 e P3 feitas e corrigidas; novo P1 em andamento |
+| 4. Documentação | README, HANDOFF e este plano atualizados |
 | 5. Reenvio | Pendente, feito pelo usuário |
