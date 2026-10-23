@@ -96,7 +96,7 @@ Recommendation: T10 — handlers centrais de erro (`errorhandler`) e exceções 
 File: app.py:7, models/task.py:3, models/task.py:38-60, models/user.py:34-38, routes/report_routes.py:7-8, routes/task_routes.py:7, routes/task_routes.py:149, routes/task_routes.py:153, routes/task_routes.py:219, routes/task_routes.py:234, routes/user_routes.py:6, routes/user_routes.py:83, routes/user_routes.py:89, routes/user_routes.py:147, services/notification_service.py:1-48, utils/helpers.py:3-7, utils/helpers.py:9-116
 Description: Imports sem uso (`os, sys, json`, `hashlib`, `format_date`, `calculate_percentage`), `NotificationService` e quase todo `utils/helpers.py` nunca usados, `print` como log e condicionais aninhadas que só devolvem `True`/`False`.
 Impact: Ruído na leitura e falsa impressão de que existe validação/notificação.
-Recommendation: T13 (logger), T14 (remover código morto) e T15 (simplificar booleanos).
+Recommendation: T13 (logger), T14 (nomes e condicionais legíveis) e T15 (remover código morto).
 
 ### [LOW] Magic Numbers and Strings (AP-11)
 File: routes/report_routes.py:45, routes/report_routes.py:129, routes/report_routes.py:180, routes/task_routes.py:96-114, routes/user_routes.py:64, routes/user_routes.py:71
