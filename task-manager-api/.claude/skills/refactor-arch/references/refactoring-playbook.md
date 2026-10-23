@@ -533,6 +533,16 @@ router.post('/faturas', exigirEscrita, faturaController.criar);
 
 `ADMIN_TOKEN` é obrigatório (T01) quando qualquer uma das três flags estiver ligada.
 
+**Conta existente identificada pelo corpo.** Se a rota reaproveita uma conta pelo e-mail ou id enviado, confira a senha enviada contra o hash (T04) e responda 401 se faltar ou não bater. Isso preserva o contrato de quem já mandava a senha certa.
+
+```js
+const user = await userModel.findByEmail(db, email);
+if (user) {
+  if (!password || !verifyPassword(password, user.passwordHash)) throw new DomainError('Credenciais inválidas', 401);
+  return user.id;
+}
+```
+
 **Validação:** chame cada rota protegida com as flags desligadas (espera 403) e com as flags ligadas e o token (espera o comportamento original). Registre os dois resultados. Toda rota que virou 403 vai para "Intentional changes".
 
 ---

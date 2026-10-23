@@ -1,12 +1,7 @@
-const { DomainError } = require('../errors/domainError');
+const userModel = require('../models/userModel');
 
-function createUserService({ models }) {
-    async function deleteUser(id) {
-        const deleted = await models.users.deleteById(id);
-        if (deleted === 0) throw new DomainError('Usuário não encontrado', 404);
-    }
-
-    return { deleteUser };
+async function deleteUser(db, id) {
+    await userModel.deleteById(db, id);
 }
 
-module.exports = { createUserService };
+module.exports = { deleteUser };

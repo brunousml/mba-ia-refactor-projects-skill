@@ -1,9 +1,7 @@
-function createReportController({ reportService }) {
-    return {
-        async financialReport(req, res) {
-            res.json(await reportService.financialReport());
-        },
-    };
+const reportService = require('../services/reportService');
+
+async function financialReport(req, res) {
+    res.json(await reportService.financialReport(req.app.locals.db));
 }
 
-module.exports = { createReportController };
+module.exports = { financialReport };

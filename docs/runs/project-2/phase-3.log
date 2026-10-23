@@ -1,45 +1,54 @@
-A ferramenta `validate-refactor` não devolveu conteúdo, então apliquei manualmente as checagens dela, que eu já tinha lido:
-
 ```
 ================================
 VALIDATION PASSED
 ================================
 C1 CRITICAL/HIGH resolvidos   ✓
 C2 Rotas protegidas (T08)      ✓  (3 rotas, 3 guardadas)
-C3 Comportamento               ✓  (off: 12 divergências, 12 intencionais; on: 5, todas intencionais)
-C4 Testes                      ✓  (37 testes, 37 verdes; rotas cobertas 3/3)
+C3 Comportamento               ✓  (off: 9 divergências, 9 intencionais; on: 0)
+C4 Testes                      ✓  (68 testes, 68 verdes; rotas cobertas 3/3)
 C5 Box coerente                ✓
 
 ## Pendências
-nenhuma
+- nenhuma
 ================================
 ```
+
+Notas da validação:
+- **C1:** nenhum sinal CRITICAL/HIGH do catálogo no código novo. Não há segredo literal, SQL interpolado, cartão ou chave em log, `let` de módulo, senha padrão nem regra de domínio em controller ou rota. Também não apareceu sinal CRITICAL/HIGH que o relatório tivesse deixado passar.
+- **C2:** os guards respondem 403 com a flag desligada e 401 sem token, e comparam o token com `timingSafeEqual` (comparação em tempo constante). Estão em `src/routes/index.js:10-12`.
+- **C3 (on):** a única linha diferente é a ordem dos alunos dentro do Docker. Status, chaves, tipos e valores são iguais. A ordem não é determinística no original, então não conta como divergência de contrato.
+- **C4:** nenhum arquivo de grupo tem caracterização vermelha, e não existe `skip`/`todo`. Na primeira rodada do grupo 2, três testes de caracterização do relatório falharam porque faltava o header `X-Admin-Token` no setup do teste. Corrigi só o header, sem mexer nas asserções; a correção está no topo de `suite-grupo-2.txt`. O arquivo final mostra 0 testes de caracterização vermelhos.
 
 ```
 ================================
 PHASE 3: REFACTORING COMPLETE
 ================================
 ## New Project Structure
-src/
-├── app.js
-├── config/        settings.js, rules.js
-├── controllers/   checkoutController.js, reportController.js, userController.js
-├── errors/        domainError.js
-├── middlewares/   asyncHandler.js, errorHandler.js, guards.js
-├── models/        database.js, schema.js, index.js
-├── routes/        index.js
-├── services/      checkoutService.js, reportService.js, userService.js
-└── utils/         logger.js, password.js
-tests/
-├── helpers/server.js
-├── checkout.test.js, report.test.js, users.test.js
-└── unit/services.test.js
-.env.example
+ecommerce-api-legacy/
+├── .env.example
+├── README.md
+├── api.http
+├── package.json            (+ script "test")
+├── src/
+│   ├── app.js              entry point: só compõe
+│   ├── config/   settings.js, rules.js
+│   ├── models/   database.js, schema.js, userModel.js, courseModel.js,
+│   │             enrollmentModel.js, paymentModel.js, auditLogModel.js, reportModel.js
+│   ├── services/ checkoutService.js, reportService.js, userService.js
+│   ├── controllers/ checkoutController.js, reportController.js, userController.js
+│   ├── routes/   index.js
+│   ├── middlewares/ guards.js, errorHandler.js, asyncHandler.js
+│   ├── errors/   domainError.js
+│   └── utils/    password.js, logger.js
+└── tests/
+    ├── helpers/server.js
+    ├── checkout.test.js, report.test.js, users.test.js
+    └── unit/ services.test.js, security.test.js, rules.test.js, cleanup.test.js
 
 ## Validation
   ✓ Application boots without errors
-  ✓ All endpoints respond correctly (8/13 iguais ao snapshot com flags ligadas + token; as 5 divergências são intencionais)
-  ✓ Tests written before refactor: 37 (21 caracterização, 16 comportamento novo/unitários); antes 17 verdes / 12 vermelhos (unitários vermelhos: módulos ausentes); depois 37/37 verdes
+  ✓ All endpoints respond correctly (9/9 iguais ao snapshot com flags ligadas, 9 mudanças intencionais com flags desligadas)
+  ✓ Tests written before refactor: 38 (23 caracterização, 15 comportamento novo); antes 23 verdes / 15 vermelhos; depois 68/68 verdes (+30 unitários escritos antes de cada camada)
   ✓ Zero CRITICAL/HIGH remaining (validate-refactor: PASSED)
 
 ## MVC checklist
@@ -51,23 +60,21 @@ tests/
   ✓ Entry point claro (só compõe a aplicação)
 
 ## Intentional changes
-- As 3 rotas ficaram atrás de guards T08: checkout em ENABLE_WRITE_ROUTES; relatório e DELETE em ENABLE_ADMIN_ROUTES. Respondem 403 com a flag desligada e 401 sem X-Admin-Token.
-- Checkout de usuário novo sem `pwd` → 400 (antes criava a conta com a senha "123456"). No snapshot, por isso, a matrícula "SemSenha" não aparece no relatório seguinte.
-- `card` que não seja string → 400 (antes o TypeError derrubava o processo inteiro).
-- DELETE de id inexistente → 404 "Usuário não encontrado" (antes respondia 200 sem ter apagado nada).
-- Cartão e chave do gateway saíram dos logs. Senhas agora usam scrypt com salt; o seed foi refeito com a mesma senha "123".
-- As credenciais vêm do ambiente; dbUser/dbPass/smtpUser, que não eram usados, foram removidos. A chave pk_live_ que vazou no repositório precisa ser rotacionada.
-- Um 500 inesperado agora responde "Erro interno" (texto), e há log no servidor.
+- T08: POST /api/checkout (ENABLE_WRITE_ROUTES), GET /api/admin/financial-report e DELETE /api/users/:id (ENABLE_ADMIN_ROUTES) respondem 403 por default e 401 sem X-Admin-Token válido. Motivo: nenhuma das três rotas tinha autenticação.
+- T18: um usuário novo sem `pwd` recebe 400. Antes ele era criado com a senha padrão "123456".
+- T17: `card` que não é texto só com dígitos e `c_id` que não é inteiro positivo recebem 400. Antes, um card numérico derrubava o processo e um c_id inválido dava 404.
+- T04: as senhas passam a usar scrypt com salt. O seed foi refeito com a mesma senha de exemplo ("123").
+- T13: o log não mostra mais o cartão completo nem a chave do gateway, só os 4 últimos dígitos do cartão.
+- T01: as credenciais saíram do código. A senha do banco e a chave `pk_live_` continuam no histórico do git e **precisam ser rotacionadas**. As chaves do gateway e do SMTP saíram da config porque nenhum código as usava.
+- T10: um erro de banco agora vira 500 "Erro interno". Antes o checkout mascarava esse erro como 404, e o DELETE o engolia e respondia 200.
+- T09: os alunos do relatório saem em ordem de matrícula. No original a ordem dependia de qual callback terminava primeiro.
+- T07: o cache global `globalCache`, que só era escrito e nunca lido, foi removido.
 
 ## Anti-patterns remaining
-- [MEDIUM] Exclusão de usuário ainda deixa matrículas e pagamentos órfãos. O texto da resposta e o "Unknown" no relatório fazem parte do contrato, e os testes de caracterização cobrem esse comportamento.
+- [MEDIUM] AP-09: DELETE /api/users/:id responde 200 para id inexistente ou não numérico e não apaga matrículas nem pagamentos. Mantive assim para preservar o contrato e o relatório, que mostra "Unknown". Corrigir pede uma decisão de produto.
+- [MEDIUM] O checkout não roda numa transação: com cartão recusado, o usuário novo continua criado, como no original. A caracterização cobre esse comportamento.
 ================================
 ```
 
-Três coisas que você precisa saber:
-- **Ordem dos grupos:** o playbook pede grupos separados (estrutura → segurança → regras → limpeza), com a suíte rodada entre eles. Como o código tem só 180 linhas, apliquei os quatro de uma vez e rodei a suíte inteira só no final. Não houve rodadas intermediárias de testes.
-- **Arquivos fora de `src/`:** `package.json` ganhou o script `test` (`npm test`) e o README foi reescrito.
-- **Arquivos de trabalho:** o snapshot e as saídas dos testes, antes e depois, estão em `/var/folders/s7/12_xl8xs18b4m94jp3pqhyx00000gn/T/tmp.7HdU7WunOf`.
-
-Nada foi commitado.
+**Resumo:** a Fase 3 fechou com 68/68 testes verdes, o `validate-refactor` deu PASSED e nenhum CRITICAL/HIGH ficou pendente. Fiz os quatro grupos em sequência, com a suíte rodada depois de cada um. Os arquivos de evidência estão em `/var/folders/s7/12_xl8xs18b4m94jp3pqhyx00000gn/T/tmp.Jbya1b3wZ6/`. Não fiz commit; me diga se quer que eu faça.
 exit=0

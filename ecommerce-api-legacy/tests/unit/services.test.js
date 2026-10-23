@@ -1,106 +1,124 @@
-// Unitários das camadas novas: serviços e models com banco em memória, sem HTTP.
-const { test } = require('node:test');
+// Testes unitários das camadas novas: serviços e models sobre um banco SQLite em memória, sem HTTP.
+const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { openDatabase } = require('../../src/models/database');
 const { initSchema } = require('../../src/models/schema');
-const { createModels } = require('../../src/models');
-const { createCheckoutService } = require('../../src/services/checkoutService');
-const { createReportService } = require('../../src/services/reportService');
-const { createUserService } = require('../../src/services/userService');
+const checkoutService = require('../../src/services/checkoutService');
+const reportService = require('../../src/services/reportService');
+const userService = require('../../src/services/userService');
 const { DomainError } = require('../../src/errors/domainError');
-const { hashPassword, verifyPassword } = require('../../src/utils/password');
 
-const silentLogger = { info() {}, warn() {}, error() {} };
+const validOrder = {
+  name: 'Guilherme',
+  email: 'gui@fullcycle.com.br',
+  password: 'senhaforte',
+  courseId: 2,
+  card: '4111222233334444',
+};
 
-async function setup() {
-    const db = openDatabase(':memory:');
-    await initSchema(db);
-    const models = createModels(db);
-    return {
-        db,
-        models,
-        checkout: createCheckoutService({ models, logger: silentLogger }),
-        report: createReportService({ models }),
-        users: createUserService({ models }),
-    };
-}
-
-const byCourse = (report, title) => report.find((c) => c.course === title);
-
-test('hash de senha é salgado e verificável', () => {
-    const a = hashPassword('123');
-    const b = hashPassword('123');
-    assert.notEqual(a, '123');
-    assert.notEqual(a, b);
-    assert.equal(verifyPassword('123', a), true);
-    assert.equal(verifyPassword('errada', a), false);
-    assert.equal(verifyPassword('123', 'formato-invalido'), false);
+let db;
+beforeEach(async () => {
+  db = openDatabase(':memory:');
+  await initSchema(db);
+});
+afterEach(async () => {
+  await db.close();
 });
 
-test('seed grava a senha do usuário de exemplo com hash', async () => {
-    const { db } = await setup();
-    const user = await db.get('SELECT pass FROM users WHERE id = 1');
-    assert.notEqual(user.pass, '123');
-    assert.equal(verifyPassword('123', user.pass), true);
+describe('schema', () => {
+  it('cria as tabelas e o seed', async () => {
+    const users = await db.all('SELECT id, name, email FROM users');
+    assert.deepEqual(users, [{ id: 1, name: 'Leonan', email: 'leonan@fullcycle.com.br' }]);
+    const courses = await db.all('SELECT title, price, active FROM courses ORDER BY id');
+    assert.deepEqual(courses, [
+      { title: 'Clean Architecture', price: 997, active: 1 },
+      { title: 'Docker', price: 497, active: 1 },
+    ]);
+    const payment = await db.get('SELECT enrollment_id, amount, status FROM payments');
+    assert.deepEqual(payment, { enrollment_id: 1, amount: 997, status: 'PAID' });
+  });
 });
 
-test('checkout aprovado cria usuário, matrícula, pagamento e auditoria', async () => {
-    const { db, checkout } = await setup();
-    const result = await checkout.checkout({
-        name: 'Ana', email: 'ana@x.com', password: 's3nha', courseId: 2, cardNumber: '4111222233334444',
-    });
-    assert.equal(result.enrollmentId, 2);
-    const user = await db.get('SELECT pass FROM users WHERE email = ?', ['ana@x.com']);
-    assert.equal(verifyPassword('s3nha', user.pass), true);
-    const payment = await db.get('SELECT amount, status FROM payments WHERE enrollment_id = 2');
-    assert.deepEqual({ ...payment }, { amount: 497, status: 'PAID' });
-    const audit = await db.get('SELECT COUNT(*) AS n FROM audit_logs');
-    assert.equal(audit.n, 1);
-});
+describe('checkoutService', () => {
+  it('cartão aprovado cria usuário, matrícula, pagamento e auditoria', async () => {
+    const { enrollmentId } = await checkoutService.checkout(db, validOrder);
+    assert.equal(enrollmentId, 2);
+    const user = await db.get('SELECT id FROM users WHERE email = ?', [validOrder.email]);
+    assert.ok(user);
+    const enrollment = await db.get('SELECT user_id, course_id FROM enrollments WHERE id = ?', [enrollmentId]);
+    assert.deepEqual(enrollment, { user_id: user.id, course_id: 2 });
+    const payment = await db.get('SELECT amount, status FROM payments WHERE enrollment_id = ?', [enrollmentId]);
+    assert.deepEqual(payment, { amount: 497, status: 'PAID' });
+    const audit = await db.get('SELECT action FROM audit_logs');
+    assert.equal(audit.action, `Checkout curso 2 por ${user.id}`);
+  });
 
-test('checkout com cartão recusado lança 400 sem criar matrícula', async () => {
-    const { db, checkout } = await setup();
+  it('e-mail existente com a senha correta reaproveita o usuário', async () => {
+    await checkoutService.checkout(db, { ...validOrder, email: 'leonan@fullcycle.com.br', password: '123' });
+    const { count } = await db.get('SELECT COUNT(*) AS count FROM users');
+    assert.equal(count, 1);
+  });
+
+  it('e-mail existente com senha errada ou ausente é recusado com 401', async () => {
+    const { count: antes } = await db.get('SELECT COUNT(*) AS count FROM enrollments');
+    for (const password of ['errada', undefined]) {
+      await assert.rejects(
+        checkoutService.checkout(db, { ...validOrder, email: 'leonan@fullcycle.com.br', password }),
+        (err) => err instanceof DomainError && err.status === 401,
+      );
+    }
+    const { count } = await db.get('SELECT COUNT(*) AS count FROM enrollments');
+    assert.equal(count, antes);
+  });
+
+  it('cartão que não começa com 4 é recusado com erro de domínio 400', async () => {
     await assert.rejects(
-        checkout.checkout({ name: 'Ana', email: 'ana@x.com', password: 'x', courseId: 1, cardNumber: '5111' }),
-        (e) => e instanceof DomainError && e.status === 400 && e.message === 'Pagamento recusado',
+      checkoutService.checkout(db, { ...validOrder, card: '5111222233334444' }),
+      (err) => err instanceof DomainError && err.status === 400 && err.message === 'Pagamento recusado',
     );
-    const row = await db.get('SELECT COUNT(*) AS n FROM enrollments');
-    assert.equal(row.n, 1);
-});
+    const { count } = await db.get('SELECT COUNT(*) AS count FROM payments');
+    assert.equal(count, 1);
+  });
 
-test('checkout de curso inexistente lança 404', async () => {
-    const { checkout } = await setup();
+  it('curso inexistente gera erro de domínio 404', async () => {
     await assert.rejects(
-        checkout.checkout({ name: 'Ana', email: 'ana@x.com', password: 'x', courseId: 99, cardNumber: '4111' }),
-        (e) => e instanceof DomainError && e.status === 404,
+      checkoutService.checkout(db, { ...validOrder, courseId: 999 }),
+      (err) => err instanceof DomainError && err.status === 404 && err.message === 'Curso não encontrado',
     );
+  });
 });
 
-test('checkout de usuário novo sem senha lança 400', async () => {
-    const { checkout } = await setup();
-    await assert.rejects(
-        checkout.checkout({ name: 'Ana', email: 'ana@x.com', courseId: 1, cardNumber: '4111' }),
-        (e) => e instanceof DomainError && e.status === 400,
-    );
-});
+describe('reportService', () => {
+  it('agrega receita e alunos por curso a partir do seed', async () => {
+    const report = await reportService.financialReport(db);
+    assert.deepEqual(report, [
+      { course: 'Clean Architecture', revenue: 997, students: [{ student: 'Leonan', paid: 997 }] },
+      { course: 'Docker', revenue: 0, students: [] },
+    ]);
+  });
 
-test('relatório soma só pagamentos PAID e lista alunos por curso', async () => {
-    const { db, report } = await setup();
+  it('soma só pagamentos PAID e mostra Unknown para aluno apagado', async () => {
+    await checkoutService.checkout(db, validOrder);
     await db.run("INSERT INTO enrollments (user_id, course_id) VALUES (1, 2)");
-    await db.run("INSERT INTO payments (enrollment_id, amount, status) VALUES (2, 497, 'DENIED')");
-    const result = await report.financialReport();
-    assert.equal(result.length, 2);
-    assert.deepEqual(byCourse(result, 'Clean Architecture'), {
-        course: 'Clean Architecture', revenue: 997, students: [{ student: 'Leonan', paid: 997 }],
-    });
-    assert.deepEqual(byCourse(result, 'Docker'), {
-        course: 'Docker', revenue: 0, students: [{ student: 'Leonan', paid: 497 }],
-    });
+    await db.run("INSERT INTO payments (enrollment_id, amount, status) VALUES (3, 497, 'DENIED')");
+    await userService.deleteUser(db, 2);
+    const docker = (await reportService.financialReport(db)).find((c) => c.course === 'Docker');
+    assert.equal(docker.revenue, 497);
+    assert.deepEqual(
+      [...docker.students].sort((a, b) => a.student.localeCompare(b.student)),
+      [{ student: 'Leonan', paid: 497 }, { student: 'Unknown', paid: 497 }],
+    );
+  });
 });
 
-test('exclusão de usuário inexistente lança 404', async () => {
-    const { users } = await setup();
-    await users.deleteUser(1);
-    await assert.rejects(users.deleteUser(1), (e) => e instanceof DomainError && e.status === 404);
+describe('userService', () => {
+  it('apaga o usuário pelo id', async () => {
+    await userService.deleteUser(db, 1);
+    assert.equal(await db.get('SELECT id FROM users WHERE id = 1'), undefined);
+  });
+
+  it('id inexistente não gera erro', async () => {
+    await userService.deleteUser(db, 999);
+  });
 });

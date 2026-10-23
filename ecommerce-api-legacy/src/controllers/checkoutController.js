@@ -1,26 +1,28 @@
-const { DomainError } = require('../errors/domainError');
+const checkoutService = require('../services/checkoutService');
 
-const isFilledString = (value) => typeof value === 'string' && value.trim() !== '';
-const isCourseId = (value) => Number.isInteger(Number(value)) && String(value).trim() !== '';
+const isPositiveInteger = (value) => Number.isInteger(value) && value > 0;
 
-// A API recebe nomes abreviados (usr, eml, pwd, c_id, card); dentro das camadas os nomes são descritivos.
-function readCheckoutInput(body = {}) {
-    const { usr, eml, pwd, c_id: courseId, card } = body;
-    if (!usr || !eml || !courseId || !card) throw new DomainError('Bad Request', 400);
-    if (!isFilledString(usr) || !isFilledString(eml) || !isCourseId(courseId) || !isFilledString(card)) {
-        throw new DomainError('Bad Request', 400);
-    }
-    if (pwd !== undefined && typeof pwd !== 'string') throw new DomainError('Bad Request', 400);
-    return { name: usr, email: eml, password: pwd, courseId: Number(courseId), cardNumber: card };
+// Validação de formato na borda (T17). Os nomes curtos (usr, eml, pwd, c_id, card) são o contrato da API;
+// internamente usamos nomes descritivos.
+function parseCheckoutInput(body) {
+    const { usr: name, eml: email, pwd: password, c_id: rawCourseId, card } = body || {};
+    if (!name || !email || !rawCourseId || !card) return { ok: false, message: "Bad Request" };
+    if (typeof name !== 'string' || typeof email !== 'string') return { ok: false, message: "usr e eml devem ser texto" };
+    if (password !== undefined && password !== null && typeof password !== 'string') return { ok: false, message: "pwd deve ser texto" };
+    if (typeof card !== 'string' || !/^\d+$/.test(card)) return { ok: false, message: "card deve conter apenas dígitos" };
+
+    const courseId = typeof rawCourseId === 'string' && /^\d+$/.test(rawCourseId) ? Number(rawCourseId) : rawCourseId;
+    if (!isPositiveInteger(courseId)) return { ok: false, message: "c_id deve ser um inteiro positivo" };
+
+    return { ok: true, value: { name, email, password: password || undefined, courseId, card } };
 }
 
-function createCheckoutController({ checkoutService }) {
-    return {
-        async checkout(req, res) {
-            const { enrollmentId } = await checkoutService.checkout(readCheckoutInput(req.body));
-            res.status(200).json({ msg: 'Sucesso', enrollment_id: enrollmentId });
-        },
-    };
+async function checkout(req, res) {
+    const input = parseCheckoutInput(req.body);
+    if (!input.ok) return res.status(400).send(input.message);
+
+    const { enrollmentId } = await checkoutService.checkout(req.app.locals.db, input.value);
+    res.status(200).json({ msg: "Sucesso", enrollment_id: enrollmentId });
 }
 
-module.exports = { createCheckoutController };
+module.exports = { checkout, parseCheckoutInput };

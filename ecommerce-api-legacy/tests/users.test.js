@@ -1,79 +1,107 @@
-const { test, describe, before, after } = require('node:test');
+const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { startServer, FLAGS_ON, FLAGS_OFF } = require('./helpers/server');
+const { startServer, AUTH } = require('./helpers/server');
 
-const DELETE_MSG = 'Usuário deletado, mas as matrículas e pagamentos ficaram sujos no banco.';
+const MSG = 'Usuário deletado, mas as matrículas e pagamentos ficaram sujos no banco.';
+const NEW_USER = {
+  usr: 'Guilherme', eml: 'gui@fullcycle.com.br', pwd: 'senhaforte', c_id: 2, card: '4111222233334444',
+};
 
-describe('usuários: caracterização (FLAGS_ON + token)', () => {
-    test('DELETE /api/users/1 responde 200 com a mensagem original', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            const r = await s.request('DELETE', '/api/users/1');
-            assert.equal(r.status, 200);
-            assert.equal(r.text, DELETE_MSG);
-        } finally { await s.stop(); }
-    });
+function cleanArch(report) {
+  return report.find((c) => c.course === 'Clean Architecture');
+}
 
-    test('após o delete, o relatório financeiro mostra o aluno como Unknown', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            assert.equal((await s.request('DELETE', '/api/users/1')).status, 200);
-            const r = await s.request('GET', '/api/admin/financial-report');
-            assert.equal(r.status, 200);
-            const course = r.json.find((c) => c.course === 'Clean Architecture');
-            assert.ok(course, 'curso Clean Architecture presente');
-            assert.equal(course.students.length, 1);
-            assert.equal(course.students[0].student, 'Unknown');
-        } finally { await s.stop(); }
-    });
+describe('DELETE /api/users/:id (caracterização)', () => {
+  let srv;
+  before(async () => { srv = await startServer(); });
+  after(async () => { await srv.stop(); });
 
-    test('após o delete, checkout com o mesmo email cria usuário novo e responde 200', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            assert.equal((await s.request('DELETE', '/api/users/1')).status, 200);
-            const r = await s.request('POST', '/api/checkout', {
-                body: { usr: 'Leonan', eml: 'leonan@fullcycle.com.br', pwd: '123', c_id: 2, card: '4111222233334444' },
-            });
-            assert.equal(r.status, 200);
-            assert.equal(r.json.msg, 'Sucesso');
-        } finally { await s.stop(); }
-    });
+  it('apaga usuário existente: 200 com texto exato', async () => {
+    const co = await srv.request('POST', '/api/checkout', { body: NEW_USER, headers: AUTH });
+    assert.equal(co.status, 200);
+    const r = await srv.request('DELETE', '/api/users/2', { headers: AUTH });
+    assert.equal(r.status, 200);
+    assert.equal(r.text, MSG);
+  });
 
-    test('GET /api/users/1 não existe (404 padrão do Express)', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            assert.equal((await s.request('GET', '/api/users/1')).status, 404);
-        } finally { await s.stop(); }
-    });
+  it('usuário inexistente: 200 com o mesmo texto', async () => {
+    const r = await srv.request('DELETE', '/api/users/999', { headers: AUTH });
+    assert.equal(r.status, 200);
+    assert.equal(r.text, MSG);
+  });
+
+  it('id não numérico ("abc"): 200 com o mesmo texto (comportamento atual)', async () => {
+    const r = await srv.request('DELETE', '/api/users/abc', { headers: AUTH });
+    assert.equal(r.status, 200);
+    assert.equal(r.text, MSG);
+  });
 });
 
-describe('usuários: comportamento novo', () => {
-    test('[novo] DELETE com flag desligada responde 403', async () => {
-        const s = await startServer(FLAGS_OFF);
-        try {
-            assert.equal((await s.request('DELETE', '/api/users/1')).status, 403);
-        } finally { await s.stop(); }
-    });
+describe('DELETE /api/users/:id efeitos observáveis (caracterização)', () => {
+  let srv;
+  before(async () => { srv = await startServer(); });
+  after(async () => { await srv.stop(); });
 
-    test('[novo] DELETE sem token responde 401', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            assert.equal((await s.request('DELETE', '/api/users/1', { token: null })).status, 401);
-        } finally { await s.stop(); }
-    });
+  it('após apagar o usuário 1, relatório mostra "Unknown" com paid e revenue 997 mantidos', async () => {
+    const before = await srv.request('GET', '/api/admin/financial-report', { headers: AUTH });
+    assert.equal(before.status, 200);
+    assert.deepEqual(cleanArch(before.json).students, [{ student: 'Leonan', paid: 997 }]);
 
-    test('[novo] DELETE de usuário inexistente responde 404', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            assert.equal((await s.request('DELETE', '/api/users/999')).status, 404);
-        } finally { await s.stop(); }
-    });
+    const del = await srv.request('DELETE', '/api/users/1', { headers: AUTH });
+    assert.equal(del.status, 200);
+    assert.equal(del.text, MSG);
 
-    test('[novo] segundo DELETE do mesmo usuário responde 404', async () => {
-        const s = await startServer(FLAGS_ON);
-        try {
-            assert.equal((await s.request('DELETE', '/api/users/1')).status, 200);
-            assert.equal((await s.request('DELETE', '/api/users/1')).status, 404);
-        } finally { await s.stop(); }
+    const r = await srv.request('GET', '/api/admin/financial-report', { headers: AUTH });
+    assert.equal(r.status, 200);
+    const ca = cleanArch(r.json);
+    assert.equal(ca.revenue, 997);
+    assert.deepEqual(ca.students, [{ student: 'Unknown', paid: 997 }]);
+  });
+
+  it('após apagar, novo checkout com o mesmo e-mail recria o usuário (200)', async () => {
+    const r = await srv.request('POST', '/api/checkout', {
+      headers: AUTH,
+      body: { usr: 'Leonan', eml: 'leonan@fullcycle.com.br', pwd: 'x', c_id: 2, card: '4111222233334444' },
     });
+    assert.equal(r.status, 200);
+    assert.equal(r.json.msg, 'Sucesso');
+    const rep = await srv.request('GET', '/api/admin/financial-report', { headers: AUTH });
+    const docker = rep.json.find((c) => c.course === 'Docker');
+    assert.deepEqual(docker.students, [{ student: 'Leonan', paid: 497 }]);
+  });
+});
+
+describe('[novo] DELETE /api/users/:id com rotas admin desligadas', () => {
+  let srv;
+  before(async () => { srv = await startServer({}); });
+  after(async () => { await srv.stop(); });
+
+  it('[novo] flag desligada: DELETE responde 403 (mesmo com token)', async () => {
+    const r = await srv.request('DELETE', '/api/users/1', { headers: AUTH });
+    assert.equal(r.status, 403);
+  });
+});
+
+describe('[novo] DELETE /api/users/:id exige token admin', () => {
+  let srv;
+  before(async () => {
+    srv = await startServer({ ENABLE_ADMIN_ROUTES: 'true', ADMIN_TOKEN: 'test-admin-token' });
+  });
+  after(async () => { await srv.stop(); });
+
+  it('[novo] sem header: 401', async () => {
+    const r = await srv.request('DELETE', '/api/users/1');
+    assert.equal(r.status, 401);
+  });
+
+  it('[novo] token errado: 401', async () => {
+    const r = await srv.request('DELETE', '/api/users/1', { headers: { 'X-Admin-Token': 'errado' } });
+    assert.equal(r.status, 401);
+  });
+
+  it('[novo] após tentativas sem token válido, Leonan continua no relatório', async () => {
+    const r = await srv.request('GET', '/api/admin/financial-report', { headers: AUTH });
+    assert.equal(r.status, 200);
+    assert.deepEqual(cleanArch(r.json).students, [{ student: 'Leonan', paid: 997 }]);
+  });
 });

@@ -1,22 +1,21 @@
+// Guards de acesso por flag (T08). Flag desligada: 403. Ligada: exige X-Admin-Token igual a ADMIN_TOKEN (401 sem ele).
 const crypto = require('crypto');
+const settings = require('../config/settings');
 
-// T08: rota registrada, mas atrás de flag (default desligada → 403) e de X-Admin-Token (→ 401).
-function createGuards(settings) {
-    const requireFlag = (flagName) => (req, res, next) => {
-        if (!settings[flagName]) return res.status(403).json({ erro: 'Recurso desabilitado' });
+function requireFlag(enabled, adminToken) {
+    return (req, res, next) => {
+        if (!enabled) return res.status(403).json({ erro: 'Recurso desabilitado' });
         const token = Buffer.from(req.get('X-Admin-Token') || '');
-        const expected = Buffer.from(settings.adminToken || '');
+        const expected = Buffer.from(adminToken || '');
         if (!expected.length || token.length !== expected.length || !crypto.timingSafeEqual(token, expected)) {
             return res.status(401).json({ erro: 'Não autorizado' });
         }
         next();
     };
-
-    return {
-        requireAdmin: requireFlag('enableAdminRoutes'),
-        requireSensitiveRead: requireFlag('enableSensitiveReads'),
-        requireWrite: requireFlag('enableWriteRoutes'),
-    };
 }
 
-module.exports = { createGuards };
+const requireAdmin = requireFlag(settings.enableAdminRoutes, settings.adminToken);
+const requireSensitiveRead = requireFlag(settings.enableSensitiveReads, settings.adminToken);
+const requireWrite = requireFlag(settings.enableWriteRoutes, settings.adminToken);
+
+module.exports = { requireFlag, requireAdmin, requireSensitiveRead, requireWrite };
