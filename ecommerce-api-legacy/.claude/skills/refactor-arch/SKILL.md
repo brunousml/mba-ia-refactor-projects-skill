@@ -78,12 +78,13 @@ Só comece com confirmação explícita ("sim", "y", "prossiga"). Qualquer outra
 Os testes são a garantia de que a refatoração foi feita certo. Escreva-os **antes** de mudar qualquer linha do código de produção. Siga `references/testing-guidelines.md`.
 
 1. Use o framework de teste padrão da stack (veja `testing-guidelines.md`). Os testes ficam em `tests/` na raiz do projeto.
-2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Declare no chat quantos subagentes usou e para quais domínios. Só escreva os testes você mesmo se a ferramenta Agent não estiver disponível nesta sessão, e diga isso no chat.
+2. **Use subagentes** (ferramenta Agent), em paralelo, um por domínio do inventário de rotas. Passe a cada um: a stack, o comando de boot, as rotas do domínio, os findings do relatório que tocam esse domínio e `testing-guidelines.md`. Cada subagente escreve e roda só os testes do seu domínio, sem alterar código de produção. Declare no chat quantos subagentes usou e para quais domínios. Só escreva os testes você mesmo se a ferramenta Agent não estiver disponível nesta sessão, e diga isso no chat. **Espere todos os subagentes terminarem** antes do passo 4: nenhum arquivo de produção é criado ou alterado enquanto houver subagente de teste rodando.
 3. Escreva dois tipos de teste:
    - **caracterização** (verdes no original): todas as rotas pela interface HTTP (cliente de teste do framework), com caso válido, de erro e de não encontrado, e as regras de negócio observáveis (cálculos, descontos, estoque, contagens). Esses testes só usam a interface HTTP e o banco, para continuarem válidos depois que o código mudar de lugar.
    - **comportamento novo** (vermelhos no original): um teste por correção de segurança ou validação que muda o contrato (403 com a flag desligada, 401 sem token, campo sensível removido, 400 no lugar de 500, senha com hash). São a especificação da Fase 3.
 4. Rode a suíte no código original. Toda caracterização precisa passar; todo teste de comportamento novo precisa falhar pelo motivo esperado. Grave em `<diretório de trabalho>/suite-original.txt` o comando, a saída, a contagem (verdes e vermelhos) e a lista dos vermelhos.
-5. Um teste de caracterização só pode mudar depois se o comportamento que ele cobre estiver em "Intentional changes"; nesse caso, ele vira teste de comportamento novo. Nunca apague ou afrouxe um teste para fazê-lo passar.
+5. A 3.3 só começa depois que `suite-original.txt` estiver gravado. Se a sessão for interrompida antes disso, recomece a 3.2 a partir do código original.
+6. Um teste de caracterização só pode mudar depois se o comportamento que ele cobre estiver em "Intentional changes"; nesse caso, ele vira teste de comportamento novo. Nunca apague ou afrouxe um teste para fazê-lo passar.
 
 ### 3.3 Plano de estrutura
 
