@@ -38,6 +38,19 @@ describe('schema', () => {
     const payment = await db.get('SELECT enrollment_id, amount, status FROM payments');
     assert.deepEqual(payment, { enrollment_id: 1, amount: 997, status: 'PAID' });
   });
+
+  it('em produção não cria o usuário de exemplo nem a matrícula dele (AP-01)', async () => {
+    const prod = await openDatabase(':memory:');
+    try {
+      await initSchema(prod, { appEnv: 'production' });
+      assert.equal((await prod.get('SELECT COUNT(*) AS n FROM users')).n, 0);
+      assert.equal((await prod.get('SELECT COUNT(*) AS n FROM enrollments')).n, 0);
+      assert.equal((await prod.get('SELECT COUNT(*) AS n FROM payments')).n, 0);
+      assert.equal((await prod.get('SELECT COUNT(*) AS n FROM courses')).n, 2);
+    } finally {
+      await prod.close();
+    }
+  });
 });
 
 describe('checkoutService', () => {

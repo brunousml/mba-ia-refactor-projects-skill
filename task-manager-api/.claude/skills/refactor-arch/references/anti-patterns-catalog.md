@@ -42,6 +42,7 @@ A severidade de cada anti-pattern está na tabela abaixo. As exceções estão e
 - Literal com cara de chave real: prefixos como `pk_live_`, `sk_live_`, `AKIA`, `ghp_`, ou string longa de alta entropia.
 - Credencial dentro de URL de conexão (`usuario:senha@host`).
 - Segredo devolvido numa resposta (por exemplo, health check que mostra a chave). Isso é também AP-04.
+- Seed que cria usuário com senha fixa e roda no boot também em produção. Correção: o seed de usuários de exemplo só roda fora de produção (`APP_ENV`); um script de seed executado à mão não conta.
 
 **Exceção:** valor claramente de exemplo (`changeme`, `your-key-here`) em arquivo de template. Rebaixe para LOW e explique.
 

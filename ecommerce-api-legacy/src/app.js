@@ -10,7 +10,7 @@ const { logger } = require('./utils/logger');
 async function main() {
     // Banco criado uma vez no boot e injetado via app.locals (T07); nenhum módulo abre conexão sozinho.
     const db = openDatabase(config.databaseFile);
-    await initSchema(db);
+    await initSchema(db, { appEnv: config.appEnv });
 
     const app = express();
     app.locals.db = db;

@@ -11,10 +11,13 @@ const SCHEMA = `
 // Senha de exemplo do seed original ("123"), agora gravada com hash.
 const SEED_PASSWORD = '123';
 
-async function initSchema(db) {
+// O catálogo de cursos sempre entra. O usuário de exemplo, com senha conhecida, e a matrícula dele
+// só entram fora de produção (AP-01).
+async function initSchema(db, { appEnv = 'development' } = {}) {
     await db.exec(SCHEMA);
-    await db.run("INSERT INTO users (name, email, pass) VALUES ('Leonan', 'leonan@fullcycle.com.br', ?)", [hashPassword(SEED_PASSWORD)]);
     await db.run("INSERT INTO courses (title, price, active) VALUES ('Clean Architecture', 997.00, 1), ('Docker', 497.00, 1)");
+    if (appEnv === 'production') return;
+    await db.run("INSERT INTO users (name, email, pass) VALUES ('Leonan', 'leonan@fullcycle.com.br', ?)", [hashPassword(SEED_PASSWORD)]);
     await db.run("INSERT INTO enrollments (user_id, course_id) VALUES (1, 1)");
     await db.run("INSERT INTO payments (enrollment_id, amount, status) VALUES (1, 997.00, 'PAID')");
 }
