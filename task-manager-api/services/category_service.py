@@ -1,64 +1,62 @@
-import re
+import logging
 
-from config.rules import COLOR_PATTERN, DEFAULT_COLOR
+from sqlalchemy.exc import SQLAlchemyError
+
+from config import rules
 from models import category as category_model
+from models import task as task_model
 from models.category import Category
-from services.errors import NotFoundError, ValidationError
-from services.persistence import save
+from models.task import Task
+from services.errors import DomainError, NotFoundError
 
-
-def _validate_name(name):
-    if not isinstance(name, str):
-        raise ValidationError('Nome deve ser um texto')
-    return name
-
-
-def _validate_color(color):
-    if not isinstance(color, str) or not re.match(COLOR_PATTERN, color):
-        raise ValidationError('Cor inválida. Use o formato #RRGGBB')
-    return color
+logger = logging.getLogger(__name__)
 
 
 def list_categories():
-    return category_model.list_with_task_count()
+    """Devolve (categoria, quantidade de tasks) de cada categoria."""
+    counts = task_model.count_by(Task.category_id)
+    return [(c, counts.get(c.id, 0)) for c in category_model.list_all()]
 
 
 def get_category(category_id):
-    category = category_model.find_by_id(category_id)
+    category = category_model.get_by_id(category_id)
     if not category:
         raise NotFoundError('Categoria não encontrada')
     return category
 
 
+def _commit(action, message):
+    try:
+        action()
+    except SQLAlchemyError:
+        category_model.rollback()
+        logger.exception(message)
+        raise DomainError(message, 500)
+
+
 def create_category(data):
     name = data.get('name')
     if not name:
-        raise ValidationError('Nome é obrigatório')
+        raise DomainError('Nome é obrigatório')
 
     category = Category()
-    category.name = _validate_name(name)
+    category.name = name
     category.description = data.get('description', '')
-    category.color = _validate_color(data.get('color', DEFAULT_COLOR))
+    category.color = data.get('color', rules.DEFAULT_COLOR)
 
-    category_model.add(category)
-    save('Erro ao criar categoria')
+    _commit(lambda: category_model.add(category), 'Erro ao criar categoria')
     return category
 
 
 def update_category(category_id, data):
     category = get_category(category_id)
-    if 'name' in data:
-        category.name = _validate_name(data['name'])
-    if 'description' in data:
-        category.description = data['description']
-    if 'color' in data:
-        category.color = _validate_color(data['color'])
-
-    save('Erro ao atualizar')
+    for field in ('name', 'description', 'color'):
+        if field in data:
+            setattr(category, field, data[field])
+    _commit(category_model.save, 'Erro ao atualizar')
     return category
 
 
 def delete_category(category_id):
     category = get_category(category_id)
-    category_model.delete(category)
-    save('Erro ao deletar')
+    _commit(lambda: category_model.delete(category), 'Erro ao deletar')

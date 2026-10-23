@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
 
-def utcnow():
-    # Substitui datetime.utcnow (obsoleto); sem fuso, como o SQLite já guarda as datas
+def utc_now():
+    """UTC sem fuso: o SQLite guarda datetime naive, então a comparação continua naive."""
     return datetime.now(timezone.utc).replace(tzinfo=None)

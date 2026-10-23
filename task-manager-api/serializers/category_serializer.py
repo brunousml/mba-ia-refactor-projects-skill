@@ -1,14 +1,14 @@
-def category_to_dict(category):
+def category_to_dict(c):
     return {
-        'id': category.id,
-        'name': category.name,
-        'description': category.description,
-        'color': category.color,
-        'created_at': str(category.created_at),
+        'id': c.id,
+        'name': c.name,
+        'description': c.description,
+        'color': c.color,
+        'created_at': str(c.created_at),
     }
 
 
-def category_list_item(category, task_count):
-    data = category_to_dict(category)
+def category_list_item(c, task_count):
+    data = category_to_dict(c)
     data['task_count'] = task_count
     return data

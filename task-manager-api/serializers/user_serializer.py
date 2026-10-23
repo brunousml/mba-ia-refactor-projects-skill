@@ -1,22 +1,16 @@
-def user_to_dict(user):
-    # Campos públicos; o hash da senha nunca sai na resposta
+def user_to_dict(u):
+    """Campos públicos do usuário. A senha (hash) nunca sai na resposta."""
     return {
-        'id': user.id,
-        'name': user.name,
-        'email': user.email,
-        'role': user.role,
-        'active': user.active,
-        'created_at': str(user.created_at),
+        'id': u.id,
+        'name': u.name,
+        'email': u.email,
+        'role': u.role,
+        'active': u.active,
+        'created_at': str(u.created_at),
     }
 
 
-def user_list_item(user, task_count):
-    return {
-        'id': user.id,
-        'name': user.name,
-        'email': user.email,
-        'role': user.role,
-        'active': user.active,
-        'created_at': str(user.created_at),
-        'task_count': task_count,
-    }
+def user_list_item(u, task_count):
+    data = user_to_dict(u)
+    data['task_count'] = task_count
+    return data

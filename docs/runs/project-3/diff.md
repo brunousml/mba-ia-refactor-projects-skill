@@ -1,14 +1,32 @@
-[FORMATO] users-detalhe-ok: estrutura do corpo mudou
-[FORMATO] users-criar-ok: estrutura do corpo mudou
-[FORMATO] users-atualizar-ok: estrutura do corpo mudou
+[STATUS] users-listar: 200 -> 403
+[STATUS] users-detalhe-ok: 200 -> 403
+[STATUS] users-detalhe-404: 404 -> 403
+[STATUS] users-criar-ok: 201 -> 403
+[STATUS] users-criar-400-email: 400 -> 403
+[STATUS] users-criar-400-senha: 400 -> 403
+[STATUS] users-criar-409: 409 -> 403
+[STATUS] users-atualizar-ok: 200 -> 403
+[STATUS] users-atualizar-404: 404 -> 403
 [FORMATO] login-ok: estrutura do corpo mudou
+[STATUS] tasks-criar-ok: 201 -> 403
+[STATUS] tasks-criar-400-titulo: 400 -> 403
+[STATUS] tasks-criar-400-status: 400 -> 403
+[STATUS] tasks-criar-400-prioridade: 400 -> 403
+[STATUS] tasks-criar-404-usuario: 404 -> 403
+[STATUS] tasks-atualizar-ok: 200 -> 403
+[STATUS] tasks-atualizar-404: 404 -> 403
+[STATUS] tasks-atualizar-400-status: 400 -> 403
 [STATUS] relatorio-resumo: 200 -> 403
 [STATUS] relatorio-usuario-ok: 200 -> 403
 [STATUS] relatorio-usuario-404: 404 -> 403
+[STATUS] categorias-criar-ok: 201 -> 403
+[STATUS] categorias-criar-400: 400 -> 403
+[STATUS] categorias-atualizar-ok: 200 -> 403
+[STATUS] categorias-atualizar-404: 404 -> 403
 [STATUS] tasks-deletar-ok: 200 -> 403
 [STATUS] tasks-deletar-404: 404 -> 403
 [STATUS] categorias-deletar-ok: 200 -> 403
 [STATUS] categorias-deletar-404: 404 -> 403
 [STATUS] users-deletar-ok: 200 -> 403
 [STATUS] users-deletar-404: 404 -> 403
-44 chamadas comparadas, 13 divergências
+44 chamadas comparadas, 31 divergências

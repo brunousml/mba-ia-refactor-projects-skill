@@ -4,7 +4,7 @@
     "method": "GET",
     "path": "/",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -12,7 +12,7 @@
     "method": "GET",
     "path": "/health",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -20,7 +20,7 @@
     "method": "GET",
     "path": "/users",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -28,7 +28,7 @@
     "method": "GET",
     "path": "/users/1",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -36,7 +36,7 @@
     "method": "GET",
     "path": "/users/999",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -49,7 +49,7 @@
       "password": "senha1"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -62,7 +62,7 @@
       "password": "senha1"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -75,7 +75,7 @@
       "password": "ab"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -88,7 +88,7 @@
       "password": "senha1"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -99,7 +99,7 @@
       "name": "Baseline Editado"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -110,7 +110,7 @@
       "name": "X"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -118,7 +118,7 @@
     "method": "GET",
     "path": "/users/1/tasks",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -126,7 +126,7 @@
     "method": "GET",
     "path": "/users/999/tasks",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -138,7 +138,7 @@
       "password": "1234"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -150,7 +150,7 @@
       "password": "errada"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -161,7 +161,7 @@
       "email": "joao@email.com"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -169,7 +169,7 @@
     "method": "GET",
     "path": "/tasks",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -177,7 +177,7 @@
     "method": "GET",
     "path": "/tasks/1",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -185,7 +185,7 @@
     "method": "GET",
     "path": "/tasks/999",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -204,7 +204,7 @@
       ]
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -215,7 +215,7 @@
       "title": "ab"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -227,7 +227,7 @@
       "status": "invalido"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -239,7 +239,7 @@
       "priority": 9
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -251,7 +251,7 @@
       "user_id": 999
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -263,7 +263,7 @@
       "priority": 1
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -274,7 +274,7 @@
       "status": "done"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -285,7 +285,7 @@
       "status": "invalido"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -293,7 +293,7 @@
     "method": "GET",
     "path": "/tasks/search?q=bug",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -301,7 +301,7 @@
     "method": "GET",
     "path": "/tasks/search?status=pending&priority=1",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -309,7 +309,7 @@
     "method": "GET",
     "path": "/tasks/stats",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -317,7 +317,7 @@
     "method": "GET",
     "path": "/reports/summary",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -325,7 +325,7 @@
     "method": "GET",
     "path": "/reports/user/1",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -333,7 +333,7 @@
     "method": "GET",
     "path": "/reports/user/999",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -341,7 +341,7 @@
     "method": "GET",
     "path": "/categories",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -354,7 +354,7 @@
       "color": "#123456"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -365,7 +365,7 @@
       "description": "sem nome"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -376,7 +376,7 @@
       "name": "Baseline Editada"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -387,7 +387,7 @@
       "name": "X"
     },
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -395,7 +395,7 @@
     "method": "DELETE",
     "path": "/tasks/10",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -403,7 +403,7 @@
     "method": "DELETE",
     "path": "/tasks/999",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -411,7 +411,7 @@
     "method": "DELETE",
     "path": "/categories/5",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -419,7 +419,7 @@
     "method": "DELETE",
     "path": "/categories/999",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -427,7 +427,7 @@
     "method": "DELETE",
     "path": "/users/4",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   },
   {
@@ -435,7 +435,7 @@
     "method": "DELETE",
     "path": "/users/999",
     "headers": {
-      "X-Admin-Token": "t0k"
+      "X-Admin-Token": "tok123"
     }
   }
 ]
