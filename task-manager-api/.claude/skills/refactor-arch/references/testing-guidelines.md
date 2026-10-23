@@ -31,6 +31,8 @@ Se o entry point original sobe o servidor ao ser importado (`app.listen` no topo
 
 **Comportamento novo** (vermelho no original, verde depois), um por correção do relatório que muda o contrato:
 - rota guardada responde 403 com a flag desligada, 401 sem token e 401 com token errado (T08). Cubra os três casos em pelo menos uma rota de cada flag usada;
+- cada rota está na flag certa: ligue **uma flag por vez** e confira que as rotas das outras flags continuam em 403 (um teste parametrizado basta). Ligar as três juntas não prova o mapeamento;
+- defesa da camada de serviço que o guard esconde por HTTP (ex.: papel definido pelo cliente, dono da conta): teste unitário chamando o serviço direto, porque pela rota o guard responde antes. Confira o corpo do erro, não só o status;
 - campo sensível ausente da resposta (T05);
 - senha armazenada não é o texto puro (T04);
 - entrada inválida responde 400, não 500 (T17);
