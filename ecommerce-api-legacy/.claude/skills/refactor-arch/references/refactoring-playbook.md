@@ -448,11 +448,11 @@ Corrige todo AP-07 sem inventar um sistema de autenticação, o que mudaria o co
 
 | Guard | Flag (default `false`) | Rotas |
 |---|---|---|
-| administração | `ENABLE_ADMIN_ROUTES` | reset, drop, execução de SQL ou comando, exclusão em massa, relatório/exportação |
-| leitura sensível | `ENABLE_SENSITIVE_READS` | GET que devolve dados pessoais (usuários, e-mails), financeiros ou de pagamento |
+| administração | `ENABLE_ADMIN_ROUTES` | reset, drop, execução de SQL ou comando, exclusão em massa, relatório ou exportação (inclusive relatório financeiro ou de vendas) |
+| leitura sensível | `ENABLE_SENSITIVE_READS` | GET que devolve registros de pessoas ou contas: dados pessoais (usuários, e-mails), pedidos, pagamentos, saldos |
 | escrita | `ENABLE_WRITE_ROUTES` | POST, PUT, PATCH e DELETE comuns, incluindo as que dependem de um "login" cujo token ninguém verifica |
 
-Com a flag desligada, a rota responde **403**. Com a flag ligada, exige o header `X-Admin-Token` igual a `ADMIN_TOKEN` (comparação em tempo constante); sem ele, **401**. As três flags compartilham a mesma fábrica de guard, para não triplicar código. Rotas de saúde, login e leituras públicas (catálogo, listagens sem dados pessoais) ficam sem guard. Se ficar em dúvida se uma leitura é sensível, trate como sensível e registre em "Intentional changes".
+Com a flag desligada, a rota responde **403**. Com a flag ligada, exige o header `X-Admin-Token` igual a `ADMIN_TOKEN` (comparação em tempo constante); sem ele, **401**. As três flags compartilham a mesma fábrica de guard, para não triplicar código. Rotas de saúde, login e leituras públicas (catálogo, listagens sem dados pessoais) ficam sem guard. Um relatório agregado vai para administração mesmo quando mostra valores financeiros: a regra "relatório/exportação" vence a de "dados financeiros". Se ficar em dúvida se uma leitura comum é sensível, trate como sensível e registre em "Intentional changes".
 
 **Python — antes**
 ```python
@@ -633,6 +633,18 @@ if saldo < valor:
 ```
 
 Registre `tratar_erro` como handler global de exceções no entry point.
+
+Com conexão por requisição (T07), o handler de 500 precisa **desfazer a transação** antes de responder. Em vários frameworks (Flask, por exemplo), quando um handler trata a exceção, o hook de fim de requisição recebe `erro=None` e faz commit da escrita parcial. Chame o rollback no próprio handler, ou abra a transação explicitamente no serviço que faz várias escritas:
+
+```python
+def tratar_erro(erro):
+    ...
+    desfazer_transacao_da_requisicao()   # ex.: contexto.conn.rollback()
+    logger.exception("Erro não tratado")
+    return json({"erro": "Erro interno"}, 500)
+```
+
+Teste: falha simulada no meio de uma escrita com várias operações → 500, e nada gravado.
 
 **JavaScript — antes**
 ```js

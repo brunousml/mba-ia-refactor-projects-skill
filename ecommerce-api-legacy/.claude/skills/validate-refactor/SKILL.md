@@ -26,8 +26,8 @@ Para cada finding CRITICAL ou HIGH do relatório, procure no código novo os **s
 
 ### C2. Rotas sem autenticação (AP-07)
 Liste todas as rotas registradas (método, caminho, `arquivo:linha`). Classifique cada uma:
-- administração (reset, SQL/comando, exclusão em massa, relatório/exportação) → precisa do guard `ENABLE_ADMIN_ROUTES`;
-- leitura de dados pessoais, financeiros ou de pagamento → guard `ENABLE_SENSITIVE_READS`;
+- administração (reset, SQL/comando, exclusão em massa, relatório ou exportação, inclusive financeiro) → precisa do guard `ENABLE_ADMIN_ROUTES`;
+- leitura de registros de pessoas ou contas (dados pessoais, pedidos, pagamentos) → guard `ENABLE_SENSITIVE_READS`;
 - POST, PUT, PATCH ou DELETE → guard `ENABLE_WRITE_ROUTES` (ou o de administração, se for o caso);
 - saúde, login e leituras públicas → sem guard.
 
@@ -44,6 +44,8 @@ Compare status e estrutura do corpo (chaves e tipos), ignorando ids e timestamps
 - Existe suíte em `tests/` cobrindo todas as rotas do inventário (caracterização) e cada correção que muda o contrato (comportamento novo).
 - `suite-original.txt` existe e mostra caracterização verde e comportamento novo vermelho no código original.
 - `suite-grupo-1.txt` a `suite-grupo-4.txt` existem, e nenhum deles tem teste de caracterização vermelho (um grupo não pode começar com caracterização vermelha). Faltou algum arquivo → ✗.
+- Os testes de guard seguem o `testing-guidelines.md` do refactor-arch: em ao menos uma rota de cada flag usada, os três casos (403 com a flag desligada, 401 sem token, 401 com token errado); e um teste com **uma flag ligada por vez** que cubra **todas** as rotas guardadas, conferindo que as rotas das outras flags continuam em 403. Ligar as três flags juntas não prova o mapeamento. Faltou → ✗, mesmo com todas as rotas cobertas por algum teste.
+- Serviço com várias escritas na mesma requisição: ou tem teste de falha no meio (500 e nada gravado), ou a falta de transação está em "Anti-patterns remaining" como MEDIUM, com o motivo. Docstring ou comentário que promete rollback sem teste que o prove → ✗.
 - Rode a suíte agora: todos verdes. Pendente: rota sem teste, correção sem teste, teste vermelho, teste apagado ou afrouxado (`skip`, assert removido) sem registro em "Intentional changes".
 
 ### C5. Box de saída
