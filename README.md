@@ -204,6 +204,7 @@ Cada transformação tem antes/depois em **Python e JavaScript** (mais de 70 blo
 | Rodada 2: a Fase 3 aceitava fechar com HIGH pendente, desde que listado em "remaining". | Passo 3.6 de pendências, "remaining" restrito a MEDIUM e LOW e a `validate-refactor` como condição para o box. Um subagente revisou a skill procurando caminhos para fechar com HIGH e achou 8 brechas, todas fechadas antes da reexecução. |
 | Rodada 2: a revisão do P2 achou um HIGH que a auditoria não registrou: o checkout com e-mail existente não conferia a senha. | Corrigido em TDD e acrescentado ao catálogo como sinal do AP-07. |
 | Rodada 2: aplicada ao P1, a regra da conta existente passou a exigir senha no `POST /pedidos`, cujo contrato nunca enviou senha. Com flags ligadas, foram 13 divergências em vez de 4. | A regra foi restrita: a senha só é conferida quando o contrato já a envia; sem isso, o guard de escrita basta. O P1 reverteu a exigência em TDD. |
+| Rodada 2: a revisão do P1 achou um pedido parcial gravado em erro 500 e lacunas de teste de guard que a `validate-refactor` deixou passar. Também achou o relatório de vendas na flag de leitura sensível, enquanto o T08 manda relatório para administração. | Corrigido em TDD no P1. Na skill, o T10 passou a exigir rollback no handler de 500, a regra do relatório foi desempatada (administração) e a C4 da `validate-refactor` passou a cobrar os testes de guard e de transação. A C5 também confere a documentação do projeto. |
 | Rodada 2: o limite de uso interrompeu as execuções headless várias vezes. Em uma delas, o P3 ficou com código de produção escrito enquanto os testes ainda rodavam. | Retomada com `--continue` quando o estado estava consistente. Quando não estava, o projeto voltou ao código original e a Fase 3 rodou do zero. |
 
 ---
@@ -228,7 +229,7 @@ Nos três projetos, a skill parou depois da Fase 2 sem tocar em código. O `git 
 
 <table>
 <tr><th>Projeto</th><th>Antes</th><th>Depois</th></tr>
-<tr><td><b>1</b><br>4 arquivos, 780 linhas<br>→ 41 arquivos, 1086 linhas<br>+ 105 testes</td><td>
+<tr><td><b>1</b><br>4 arquivos, 780 linhas<br>→ 41 arquivos, 1099 linhas<br>+ 174 testes</td><td>
 
 ```
 app.py          rotas + admin + boot
@@ -319,11 +320,11 @@ No projeto 3, a skill **não reescreveu** o que já existia. Manteve `models/` e
 
 | Projeto | Suíte | No código original | No fim da Fase 3 |
 | --- | --- | --- | --- |
-| 1 | `pytest`, 105 testes | 101 escritos antes: 49 verdes, 52 vermelhos. Os outros 4 vieram nas correções da validação, também vermelhos antes do código | 105/105 |
+| 1 | `pytest`, 174 testes | 101 escritos antes: 49 verdes, 52 vermelhos. Outros 4 vieram nas correções da validação e 69 na revisão; dos 69, os 6 que cobrem uma correção ficaram vermelhos antes do código | 174/174 |
 | 2 | `npm test` (`node --test`), 80 testes | 38 escritos antes; os demais cobrem as camadas novas e as correções da revisão | 80/80 |
 | 3 | `pytest`, 195 testes | 174 escritos antes (110 de caracterização, 64 de comportamento novo) | 195/195 |
 
-Os testes acrescentados depois da Fase 3 vieram da revisão por subagentes: flag isolada por rota (cada flag ligada sozinha libera só as rotas dela), token errado em três tamanhos e defesa de papel testada direto no serviço. A saída da suíte depois de cada grupo de transformações ficou no diretório de trabalho da skill, e a `validate-refactor` a conferiu (checagem C4).
+Os testes acrescentados depois da Fase 3 vieram da revisão por subagentes: flag isolada por rota (cada flag ligada sozinha libera só as rotas dela), token errado, defesa de papel testada direto no serviço e, no P1, falha no meio de um pedido, que precisa terminar sem nada gravado. A saída da suíte depois de cada grupo de transformações ficou no diretório de trabalho da skill, e a `validate-refactor` a conferiu (checagem C4).
 
 ### Validação externa (fora da skill)
 
@@ -383,7 +384,7 @@ A saída completa de cada fase está em [`docs/runs/project-N/`](docs/runs/): `p
 | Entry point claro | ✅ `create_app()` | ✅ `main()` | ✅ `create_app()` |
 | Aplicação inicia sem erros | ✅ | ✅ | ✅ |
 | Endpoints originais respondem corretamente | ✅ 35 chamadas | ✅ 7 chamadas | ✅ 44 chamadas |
-| Testes escritos antes da refatoração, todos verdes no fim | ✅ 105/105 | ✅ 80/80 | ✅ 195/195 |
+| Testes escritos antes da refatoração, todos verdes no fim | ✅ 174/174 | ✅ 80/80 | ✅ 195/195 |
 | Rotas sem autenticação atrás de um guard T08 | ✅ 13 de 19 | ✅ 3 de 3 | ✅ 13 de 22 |
 | Zero CRITICAL/HIGH restante (`validate-refactor`) | ✅ PASSED | ✅ PASSED | ✅ PASSED |
 
@@ -398,7 +399,7 @@ Ficaram sem guard o login, `/health`, a raiz e as leituras sem dado pessoal ou f
 
 ### Comportamento em stacks diferentes
 
-- **Monolito Flask (P1):** separação completa em camadas. O SQL passou a ser parametrizado, a conexão virou uma por requisição e as senhas ganharam scrypt. Um `loja.db` da versão antiga precisa ser recriado. O seed de usuários de exemplo só roda fora de produção, e o cadastro de usuário (`POST /usuarios`) passou para trás do guard de escrita, por decisão minha durante a Fase 3.
+- **Monolito Flask (P1):** separação completa em camadas. O SQL passou a ser parametrizado, a conexão virou uma por requisição e as senhas ganharam scrypt. Um `loja.db` da versão antiga precisa ser recriado. O seed de usuários de exemplo só roda fora de produção, e o cadastro de usuário (`POST /usuarios`) passou para trás do guard de escrita, por decisão minha durante a Fase 3. A revisão achou um pedido parcial gravado quando o serviço falhava no meio: o handler de 500 tratava a exceção e o fim da requisição fazia commit. O handler agora desfaz a transação, com teste.
 - **Express com callbacks (P2):** foi o teste mais forte de agnosticismo, porque não tem `requirements.txt`, usa callbacks e o banco fica em memória. A skill criou um adaptador Promise sobre o driver, usou `asyncHandler` e trocou o N+1 do relatório por um único `LEFT JOIN`. Também tratou casos que o original deixava passar: tipo inválido, que derrubava o processo, passou a dar 400. O checkout com e-mail existente e senha errada passou a dar 401 numa correção em TDD depois da revisão, porque a Fase 3 não tinha pegado esse caso.
 - **Flask já em camadas (P3):** a skill reconheceu "camadas parciais" e completou o que faltava, sem reescrever do zero. Trocou as APIs deprecated, removeu código morto e fechou o cadastro anônimo de `admin`.
 - **Nos três:** a skill listou cada mudança de contrato como intencional e preservou a porta original como default. O mesmo guard T08 foi implementado em Python (`exigir_flag`, com `hmac.compare_digest`) e em JavaScript (`exigirFlag`, com `crypto.timingSafeEqual`).

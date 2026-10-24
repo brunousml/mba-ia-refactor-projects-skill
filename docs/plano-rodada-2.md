@@ -64,7 +64,7 @@ O usuário reenvia a URL na plataforma e atualiza o status para "Revisão necess
 | 1. Skill | Feito, com as brechas da revisão fechadas e a regra da conta existente restrita ao contrato que já envia a senha |
 | 2. P2 | Feito e commitado (80/80 testes, 0 divergências com flags on) |
 | 2. P3 | Feito e commitado (195/195 testes, só a remoção de `password` com flags on) |
-| 2. P1 | Feito e commitado (105/105 testes, 4 divergências documentadas com flags on) |
-| 3. Revisão | Skill, P2 e P3 feitas e corrigidas; novo P1 em andamento |
+| 2. P1 | Feito e commitado (174/174 testes, 4 divergências documentadas com flags on) |
+| 3. Revisão | Skill, P1, P2 e P3 feitas; achados corrigidos em TDD e as falhas de skill viraram regra |
 | 4. Documentação | README, HANDOFF e este plano atualizados |
 | 5. Reenvio | Pendente, feito pelo usuário |

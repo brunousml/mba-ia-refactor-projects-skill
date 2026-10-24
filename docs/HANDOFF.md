@@ -5,7 +5,7 @@ deste fork.
 
 ## Estado atual
 
-Rodada 2 em andamento, seguindo o [plano da rodada 2](plano-rodada-2.md). Na plataforma, o status é "Revisão necessária, ajustando".
+Rodada 2 concluída no repositório local, seguindo o [plano da rodada 2](plano-rodada-2.md). Faltam o push, que depende de confirmação do usuário, e o reenvio da URL. Na plataforma, o status é "Revisão necessária, ajustando".
 
 A revisão da entrega apontou que a Fase 3 do P1 e do P3 terminava com AP-07 parcial: leituras sensíveis e escritas continuavam sem autenticação, e o box marcava ✗ em "Zero anti-patterns remaining". Endureci a skill e refiz os 3 projetos a partir do código original, com TDD. Os três terminaram com `validate-refactor` PASSED e foram commitados.
 
@@ -18,7 +18,7 @@ A revisão da entrega apontou que a Fase 3 do P1 e do P3 terminava com AP-07 par
 | Revisão da skill por subagente | 8 brechas, todas fechadas | seção "Revisão por subagentes" |
 | P2 | Refeito, revisado e commitado | [relatório](../reports/audit-project-2.md), [log 3](runs/project-2/phase-3.log), [diff off](runs/project-2/diff.md), [diff on](runs/project-2/diff-flags-on.md) |
 | P3 | Refeito, revisado e commitado | [relatório](../reports/audit-project-3.md), [log 3](runs/project-3/phase-3.log), [diff off](runs/project-3/diff.md), [diff on](runs/project-3/diff-flags-on.md) |
-| P1 | Refeito e commitado (`1f12c2a`); revisão por subagente em andamento | [relatório](../reports/audit-project-1.md), [log 3](runs/project-1/phase-3.log), retomadas em `phase-3a..c.log`, [diff off](runs/project-1/diff.md), [diff on](runs/project-1/diff-flags-on.md) |
+| P1 | Refeito, revisado e commitado | [relatório](../reports/audit-project-1.md), [log 3](runs/project-1/phase-3.log), retomadas em `phase-3a..c.log`, [diff off](runs/project-1/diff.md), [diff on](runs/project-1/diff-flags-on.md) |
 | README | Atualizado com os resultados da rodada 2 | [README](../README.md) |
 | Reenvio da URL | Pendente; feito pelo usuário | |
 
@@ -53,7 +53,7 @@ O box de saída ganhou a linha de testes, com a contagem antes e depois. "Intent
 | P2 | Um HIGH que a nova auditoria não registrou: o checkout reaproveitava a conta pelo e-mail sem conferir a senha. Um MEDIUM: faltava teste com token errado | O catálogo (AP-07) e o T08 passaram a cobrir o sinal. Corrigi o código em TDD, com os testes vermelhos primeiro |
 | P3 (Opus, por ser revisão de segurança) | Nenhum CRITICAL ou HIGH. Lacunas de teste: flag isolada por rota não testada, defesa de papel testada só pela rota, token errado só em parte das rotas | Testes escritos por subagente Sonnet (`5c6ff8e`); as duas lacunas gerais viraram regra na testing-guidelines (`b20ddb1`). Suíte em 195/195 |
 | P2, segunda passada (depois das regras novas e da decisão do seed no P1) | O seed criava o usuário de exemplo também em produção (AP-01); flag isolada e token errado faltavam em parte das rotas | Corrigido em TDD (`74f51bc`, `9ad4935`), e o catálogo ganhou o sinal do seed. Suíte em 80/80 |
-| P1 (versão nova) | Em andamento (Opus) | |
+| P1 (versão nova, Opus) | Nenhum CRITICAL ou HIGH. 4 MEDIUM: pedido parcial gravado em erro 500 (o handler tratava a exceção e o teardown fazia commit); mapeamento por flag isolada sem teste em três rotas de pedido; token errado sem teste no admin; a C4 da validate-refactor não cobrava essas regras. 4 LOW: relatório de vendas na flag de leitura sensível, teste que aceitava 400 ou 401, números do box diferentes dos diffs versionados, `/health` devolvendo o caminho completo do banco | Um subagente Sonnet escreveu 69 testes, e os 6 que cobrem correção ficaram vermelhos. Depois veio o código: rollback nos handlers de erro, relatório no guard de admin e só o nome do arquivo em `db_path`. Suíte em 174/174, `compare.py` igual (26 e 4). Na skill (`c740a71` e o commit seguinte): T10 com rollback, regra do relatório desempatada, C4 cobrando testes de guard e de transação, C5 conferindo a documentação do projeto. Relatório e README do P1 corrigidos |
 
 ## Resultados por projeto
 
@@ -61,7 +61,7 @@ O box de saída ganhou a linha de testes, com a contagem antes e depois. "Intent
 |---|---|---|---|---|
 | P2 | `npm test` 80/80; 38 escritos antes da refatoração, o resto são unitários das camadas novas e testes das correções da revisão | 7 divergências, todas 403 intencionais | 0 divergências | validate-refactor PASSED. Ficam 2 MEDIUM: DELETE de id inexistente responde 200, e o checkout não roda em transação |
 | P3 | `pytest` 195/195; 174 escritos antes (110 de caracterização, 64 de comportamento novo), 11 da revisão | 31 divergências: 30 são 403 e uma é o login sem `password` | 4, todas a remoção de `password`; os valores conferidos batem com o original | validate-refactor PASSED, com evidência em todos os grupos. 13 de 22 rotas guardadas. Ficam 3 LOW |
-| P1 | `pytest` 105/105; 101 escritos antes (49 verdes e 52 vermelhos no original), 4 nas correções, vermelhos antes do código | 26 divergências: 25 são 403 e uma é o `/health` sem `secret_key` | 4: `secret_key`, `senha` em duas rotas e `POST /produtos` sem corpo 500→400 | validate-refactor PASSED. 13 de 19 rotas guardadas, `POST /usuarios` incluído. Ficam 1 MEDIUM e 2 LOW |
+| P1 | `pytest` 174/174; 101 escritos antes (49 verdes e 52 vermelhos no original), 4 nas correções da validação, 69 na revisão | 26 divergências: 25 são 403 e uma é o `/health` sem `secret_key` | 4: `secret_key`, `senha` em duas rotas e `POST /produtos` sem corpo 500→400 | validate-refactor PASSED. 13 de 19 rotas guardadas, `POST /usuarios` incluído. Ficam 1 MEDIUM e 2 LOW |
 
 No P1, duas decisões vieram do usuário durante a Fase 3: o seed de usuários de exemplo roda só fora de produção, e o `POST /usuarios` fica atrás do guard de escrita. A primeira execução com essas decisões aplicou a regra da conta existente ao `POST /pedidos` e passou a exigir senha, que o contrato nunca enviou (13 divergências com flags on). A regra foi restrita na skill (`9579999`), e a retomada reverteu a exigência em TDD. Ela também tirou do box uma linha de "aceite pendente" para o AP-01, que estava errada: o seed fora de produção é a correção prevista no catálogo, não um risco aceito.
 
@@ -90,14 +90,16 @@ Nas primeiras execuções, o agente aplicava os 4 grupos de uma vez com a justif
 
 No modo headless, o `kill` continua negado, e a skill deixa servidores de teste no ar. Ela informa os PIDs no fim, e eu os encerro antes da verificação externa.
 
+Os números do box do P1 (47 chamadas) vêm do snapshot da própria skill, gravado no diretório de trabalho dela, fora do repositório. Os números que valem para a entrega são os da linha de base versionada (35 chamadas), nos `diff.md` e `diff-flags-on.md`.
+
+Duas revisões do P1 travaram no Bash do subagente: uma ao copiar arquivos para o scratchpad e outra ao subir o servidor com `&`. A terceira, só com leitura e pytest, terminou em 6 minutos. Revisor não sobe servidor; os diffs externos já cobrem o comportamento HTTP.
+
 No zsh, uma variável com várias atribuições (`$VARS` contendo `A=1 B=2`) não é separada em palavras. Passada a `env`, vira uma variável só, e a aplicação sobe com as flags desligadas. A primeira verificação do P1 com flags on saiu igual à com flags off por isso. Passe as variáveis por extenso na linha de comando.
 
 ## Próximo passo
 
-1. Revisão do novo P1 por subagente (em andamento). Corrigir em TDD o que ela apontar.
-2. Commit do README, deste handoff e do plano.
-3. Push, com confirmação do usuário.
-4. O usuário reenvia a URL na plataforma.
+1. Push, com confirmação do usuário.
+2. O usuário reenvia a URL na plataforma.
 
 ---
 

@@ -51,6 +51,7 @@ Compare status e estrutura do corpo (chaves e tipos), ignorando ids e timestamps
 ### C5. Box de saída
 - "Anti-patterns remaining" só pode ter MEDIUM ou LOW, cada um com motivo.
 - Os ✓ do box precisam bater com C1–C4.
+- A documentação do projeto (README, `.env.example`) lista as mesmas rotas por flag que a C2 encontrou no código, e nenhuma rota guardada aparece como pública.
 
 ## Saída
 
