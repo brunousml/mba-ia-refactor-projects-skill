@@ -229,7 +229,7 @@ Nos três projetos, a skill parou depois da Fase 2 sem tocar em código. O `git 
 
 <table>
 <tr><th>Projeto</th><th>Antes</th><th>Depois</th></tr>
-<tr><td><b>1</b><br>4 arquivos, 780 linhas<br>→ 41 arquivos, 1099 linhas<br>+ 174 testes</td><td>
+<tr><td><b>1</b><br>4 arquivos, 780 linhas<br>→ 41 arquivos, 1099 linhas<br>+ 175 testes</td><td>
 
 ```
 app.py          rotas + admin + boot
@@ -320,7 +320,7 @@ No projeto 3, a skill **não reescreveu** o que já existia. Manteve `models/` e
 
 | Projeto | Suíte | No código original | No fim da Fase 3 |
 | --- | --- | --- | --- |
-| 1 | `pytest`, 174 testes | 101 escritos antes: 49 verdes, 52 vermelhos. Outros 4 vieram nas correções da validação e 69 na revisão; dos 69, os 6 que cobrem uma correção ficaram vermelhos antes do código | 174/174 |
+| 1 | `pytest`, 175 testes | 101 escritos antes: 49 verdes, 52 vermelhos. Outros 4 vieram nas correções da validação, 69 na revisão e 1 na revisão independente (status de pedido inexistente → 404); os 7 que cobrem uma correção ficaram vermelhos antes do código | 175/175 |
 | 2 | `npm test` (`node --test`), 80 testes | 38 escritos antes; os demais cobrem as camadas novas e as correções da revisão | 80/80 |
 | 3 | `pytest`, 195 testes | 174 escritos antes (110 de caracterização, 64 de comportamento novo) | 195/195 |
 
@@ -384,7 +384,7 @@ A saída completa de cada fase está em [`docs/runs/project-N/`](docs/runs/): `p
 | Entry point claro | ✅ `create_app()` | ✅ `main()` | ✅ `create_app()` |
 | Aplicação inicia sem erros | ✅ | ✅ | ✅ |
 | Endpoints originais respondem corretamente | ✅ 35 chamadas | ✅ 7 chamadas | ✅ 44 chamadas |
-| Testes escritos antes da refatoração, todos verdes no fim | ✅ 174/174 | ✅ 80/80 | ✅ 195/195 |
+| Testes escritos antes da refatoração, todos verdes no fim | ✅ 175/175 | ✅ 80/80 | ✅ 195/195 |
 | Rotas sem autenticação atrás de um guard T08 | ✅ 13 de 19 | ✅ 3 de 3 | ✅ 13 de 22 |
 | Zero CRITICAL/HIGH restante (`validate-refactor`) | ✅ PASSED | ✅ PASSED | ✅ PASSED |
 

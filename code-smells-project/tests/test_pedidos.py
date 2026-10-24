@@ -145,6 +145,12 @@ def test_atualizar_status_invalido_retorna_400(cliente):
     assert resposta.get_json()["erro"] == "Status inválido"
 
 
+def test_atualizar_status_de_pedido_inexistente_retorna_404(cliente):
+    resposta = cliente.put("/pedidos/9999/status", json={"status": "aprovado"})
+    assert resposta.status_code == 404
+    assert resposta.get_json()["erro"] == "Pedido não encontrado"
+
+
 # ---------------------------------------------------------------- Bloco B
 
 

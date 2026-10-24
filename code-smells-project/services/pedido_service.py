@@ -39,7 +39,8 @@ def listar_todos():
 
 
 def atualizar_status(pedido_id, novo_status):
-    pedido_model.atualizar_status_pedido(pedido_id, novo_status)
+    if not pedido_model.atualizar_status_pedido(pedido_id, novo_status):
+        raise ErroDominio("Pedido não encontrado", 404, SEM_SUCESSO)
     if novo_status == "aprovado":
         logger.info("Pedido %s aprovado: preparar envio", pedido_id)
     if novo_status == "cancelado":
