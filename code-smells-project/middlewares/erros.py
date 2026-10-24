@@ -5,6 +5,7 @@ import logging
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
 
+from models.database import desfazer_transacao
 from services.erros import ErroDominio
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 def registrar_erros(app):
     @app.errorhandler(ErroDominio)
     def erro_de_dominio(erro):
+        desfazer_transacao()
         corpo = {"erro": str(erro)}
         corpo.update(erro.corpo_extra)
         return jsonify(corpo), erro.status
@@ -23,5 +25,6 @@ def registrar_erros(app):
 
     @app.errorhandler(Exception)
     def erro_interno(erro):
+        desfazer_transacao()
         logger.exception("Erro não tratado")
         return jsonify({"erro": "Erro interno"}), 500

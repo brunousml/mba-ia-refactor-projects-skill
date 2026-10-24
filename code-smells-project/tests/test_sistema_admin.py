@@ -133,14 +133,14 @@ def test_relatorio_com_flag_desligada_devolve_403(cliente_sem_flags):
 
 
 def test_relatorio_sem_token_devolve_401(montar):
-    cliente = montar(flags=("ENABLE_SENSITIVE_READS",))
+    cliente = montar(flags=("ENABLE_ADMIN_ROUTES",))
     resposta = cliente.get("/relatorios/vendas")
     assert resposta.status_code == 401
     assert resposta.get_json()["erro"] == "Não autorizado"
 
 
 def test_relatorio_com_token_errado_devolve_401(montar):
-    cliente = montar(flags=("ENABLE_SENSITIVE_READS",), token_enviado="token-errado")
+    cliente = montar(flags=("ENABLE_ADMIN_ROUTES",), token_enviado="token-errado")
     assert cliente.get("/relatorios/vendas").status_code == 401
 
 
@@ -188,3 +188,21 @@ def test_cors_nao_libera_origem_arbitraria(cliente_sem_flags):
     resposta = cliente_sem_flags.get("/", headers={"Origin": atacante})
     liberada = resposta.headers.get("Access-Control-Allow-Origin")
     assert liberada not in (atacante, "*")
+
+
+def test_health_com_banco_padrao_devolve_so_o_nome_do_arquivo(cliente_sem_flags):
+    assert cliente_sem_flags.get("/health").get_json()["db_path"] == "loja.db"
+
+
+def test_health_com_db_path_absoluto_nao_expoe_o_diretorio(montar, monkeypatch, tmp_path):
+    caminho = tmp_path / "dados" / "loja.db"
+    caminho.parent.mkdir()
+    monkeypatch.setenv("DB_PATH", str(caminho))
+    cliente = montar()
+
+    resposta = cliente.get("/health")
+
+    assert resposta.status_code == 200
+    assert caminho.exists()  # o app realmente usa o arquivo apontado por DB_PATH
+    assert resposta.get_json()["db_path"] == "loja.db"
+    assert str(tmp_path) not in resposta.get_data(as_text=True)

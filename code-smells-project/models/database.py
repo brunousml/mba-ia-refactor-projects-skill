@@ -19,6 +19,14 @@ def get_db():
     return g.db
 
 
+def desfazer_transacao():
+    """Desfaz a escrita pendente da requisição. O handler de 500 chama isto, porque, quando ele trata
+    a exceção, o teardown recebe erro=None e faria commit da escrita parcial."""
+    db = g.get("db")
+    if db is not None:
+        db.rollback()
+
+
 def fechar_db(erro=None):
     """Fim da requisição: confirma se deu certo, desfaz se deu erro, e fecha."""
     db = g.pop("db", None)

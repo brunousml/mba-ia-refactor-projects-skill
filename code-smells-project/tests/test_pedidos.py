@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import TOKEN
+
 RAIZ = Path(__file__).resolve().parent.parent
 SENHA = "123456"
 ITENS_VALIDOS = [
@@ -215,10 +217,38 @@ def test_criar_pedido_com_produto_id_texto_retorna_400_e_nao_grava(cliente, tmp_
     assert total_pedidos_no_banco(tmp_path) == 0
 
 
-def test_criar_pedido_com_usuario_id_texto_nunca_retorna_201(cliente, tmp_path):
+def test_criar_pedido_com_usuario_id_texto_retorna_400_e_nao_grava(cliente, tmp_path):
     resposta = cliente.post("/pedidos", json=corpo(usuario_id="2 OR 1=1"))
-    assert resposta.status_code in (400, 401)
+    assert resposta.status_code == 400
+    assert resposta.get_json() == {"erro": "Usuario ID deve ser inteiro"}
     assert total_pedidos_no_banco(tmp_path) == 0
+
+
+def test_falha_ao_inserir_item_devolve_500_e_desfaz_pedido_e_estoque(montar, monkeypatch, tmp_path):
+    cliente = montar(flags=("ENABLE_WRITE_ROUTES",), token_enviado=TOKEN)
+    # O conftest recarrega os módulos em montar(); o patch vem depois, no módulo já importado.
+    import models.pedido_model as pedido_model
+
+    original = pedido_model.inserir_item
+    chamadas = []
+
+    def inserir_item_quebrado(*args, **kwargs):
+        # O 2º item falha: o 1º já gravou o item e baixou o estoque, então o rollback tem trabalho a fazer.
+        chamadas.append(args)
+        if len(chamadas) == 2:
+            raise RuntimeError("falha simulada na inserção do item")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(pedido_model, "inserir_item", inserir_item_quebrado)
+
+    resposta = cliente.post("/pedidos", json=corpo())
+
+    assert resposta.status_code == 500
+    assert resposta.get_json() == {"erro": "Erro interno"}
+    assert total_pedidos_no_banco(tmp_path) == 0
+    assert len(chamadas) == 2
+    assert estoque(cliente, 1) == 10
+    assert estoque(cliente, 2) == 50
 
 
 def test_servico_criar_pedido_sem_credencial_do_dono_cria_o_pedido(montar, monkeypatch):

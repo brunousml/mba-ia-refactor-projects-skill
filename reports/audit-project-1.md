@@ -25,6 +25,7 @@ File: app.py:18-19, app.py:24-25, app.py:28, app.py:30, app.py:47-57, app.py:59-
 Description: Nenhuma dessas rotas verifica identidade. `POST /admin/reset-db` apaga as quatro tabelas; `POST /admin/query` executa o SQL recebido no corpo (app.py:69); `GET /usuarios` e `GET /usuarios/<id>` devolvem dados pessoais e senha; `GET /pedidos` e `GET /pedidos/usuario/<id>` devolvem pedidos de qualquer cliente; `GET /relatorios/vendas` devolve dados financeiros; `GET /health` devolve a chave secreta.
 Impact: Qualquer cliente anônimo apaga o banco, executa SQL arbitrário ou lê dados pessoais e financeiros.
 Recommendation: T08 — guard de administração (reset, query), de leitura sensível (usuários, pedidos, relatório) e remoção da chave do health, controlados por flag e `X-Admin-Token`.
+Nota da Fase 3: `GET /relatorios/vendas` ficou no guard de administração, e não no de leitura sensível. A regra do T08 manda relatório e exportação para administração, mesmo com valores financeiros.
 
 ### [CRITICAL] SQL Injection (AP-02)
 File: app.py:69, models.py:48-49, models.py:58-60, models.py:110, models.py:127-128, models.py:140, models.py:149-150, models.py:155, models.py:158-160, models.py:164-165, models.py:291, models.py:293
@@ -55,6 +56,7 @@ File: app.py:14-16, app.py:23, app.py:26, controllers.py:195-203, controllers.py
 Description: Criar, alterar e apagar produto (app.py:14-16), criar pedido (app.py:23) e mudar status de pedido (app.py:26) não exigem identidade. Em `POST /pedidos`, o `usuario_id` vem do corpo e o pedido é criado para qualquer conta existente, sem conferir senha (controllers.py:195-203). O `/login` (controllers.py:167-186) não devolve token nem sessão, então nenhuma rota depende dele.
 Impact: Qualquer cliente altera catálogo, preços e estoque, muda o status de pedidos e cria pedidos em nome de outros usuários.
 Recommendation: T08 — guard de escrita por flag para PUT/DELETE/POST de catálogo e status. `POST /pedidos` deve obter o usuário da credencial do dono, não do corpo. Decisão a registrar na Fase 3: `POST /usuarios` e `/login` seguem públicos por serem fluxo de cliente.
+Nota da Fase 3: o contrato original de `POST /pedidos` não envia credencial do dono, então a proteção é o guard de escrita (regra da conta existente no T08). `POST /usuarios` também ficou atrás do guard de escrita, por decisão do usuário. `/login` segue público.
 
 ### [HIGH] Business Logic and Data Access Outside the Route and Data Layers (AP-05)
 File: app.py:49-55, app.py:66-76, models.py:137-169, models.py:256-262

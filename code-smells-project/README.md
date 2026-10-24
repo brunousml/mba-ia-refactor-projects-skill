@@ -34,11 +34,11 @@ As rotas sem autenticação real continuam registradas, mas protegidas por flag.
 
 | Flag | Rotas |
 | --- | --- |
-| `ENABLE_ADMIN_ROUTES` | `POST /admin/reset-db`, `POST /admin/query` |
-| `ENABLE_SENSITIVE_READS` | `GET /usuarios`, `GET /usuarios/<id>`, `GET /pedidos`, `GET /pedidos/usuario/<id>`, `GET /relatorios/vendas` |
-| `ENABLE_WRITE_ROUTES` | `POST/PUT/DELETE /produtos`, `POST /pedidos`, `PUT /pedidos/<id>/status` |
+| `ENABLE_ADMIN_ROUTES` | `POST /admin/reset-db`, `POST /admin/query`, `GET /relatorios/vendas` |
+| `ENABLE_SENSITIVE_READS` | `GET /usuarios`, `GET /usuarios/<id>`, `GET /pedidos`, `GET /pedidos/usuario/<id>` |
+| `ENABLE_WRITE_ROUTES` | `POST/PUT/DELETE /produtos`, `POST /usuarios`, `POST /pedidos`, `PUT /pedidos/<id>/status` |
 
-Sem guard: `GET /`, `GET /health`, leituras do catálogo (`/produtos`), `POST /usuarios` (cadastro) e `POST /login`.
+Sem guard: `GET /`, `GET /health`, leituras do catálogo (`/produtos`) e `POST /login`.
 
 `POST /pedidos` segue o contrato original: a conta vem do `usuario_id` do corpo, sem credencial do dono. A proteção é o guard de escrita (`ENABLE_WRITE_ROUTES` e `X-Admin-Token`).
 

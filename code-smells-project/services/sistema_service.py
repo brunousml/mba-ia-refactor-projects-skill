@@ -1,3 +1,5 @@
+import os
+
 from config import settings
 from models import sistema_model
 
@@ -10,6 +12,6 @@ def status_banco():
         "counts": contagens,
         "versao": "1.0.0",
         "ambiente": "producao",
-        "db_path": settings.DB_PATH,
+        "db_path": os.path.basename(settings.DB_PATH),
         "debug": settings.DEBUG,
     }
