@@ -50,13 +50,14 @@ Routes:        <N> (inventário abaixo)
 
 ## Fase 2: Auditoria
 
-1. Para cada anti-pattern de `anti-patterns-catalog.md`, procure os sinais de detecção no código. Leia o trecho antes de confirmar.
-2. Classifique cada finding com a severidade definida no catálogo.
-3. Ordene os findings de CRITICAL a LOW.
-4. Escreva o relatório seguindo `audit-report-template.md`. Use o caminho recebido como argumento: `$ARGUMENTS`. Se o argumento vier vazio, use `reports/audit-report.md` na raiz do projeto.
-5. Imprima o mesmo relatório na saída.
-6. Se houver menos de 5 findings, releia o catálogo antes de concluir. Não force findings que não existem.
-7. Termine com exatamente esta linha e **pare**:
+1. Anote o commit do código auditado (`git rev-parse --short HEAD`; fora de um repositório git, escreva "sem git"). Ele vai no campo `Commit` do relatório, porque a Fase 3 muda os arquivos e as linhas citadas deixam de existir.
+2. Para cada anti-pattern de `anti-patterns-catalog.md`, procure os sinais de detecção no código. Leia o trecho antes de confirmar.
+3. Classifique cada finding com a severidade definida no catálogo.
+4. Ordene os findings de CRITICAL a LOW.
+5. Escreva o relatório seguindo `audit-report-template.md`. Use o caminho recebido como argumento: `$ARGUMENTS`. Se o argumento vier vazio, use `reports/audit-report.md` na raiz do projeto.
+6. Imprima o mesmo relatório na saída.
+7. Se houver menos de 5 findings, releia o catálogo antes de concluir. Não force findings que não existem.
+8. Termine com exatamente esta linha e **pare**:
 
 ```
 Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]

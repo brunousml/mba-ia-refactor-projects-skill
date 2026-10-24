@@ -16,6 +16,7 @@ ARCHITECTURE AUDIT REPORT
 Project: <nome da pasta do projeto>
 Stack:   <linguagem> + <framework>
 Files:   <N> analyzed | ~<M> lines of code
+Commit:  <hash curto do código auditado> (as linhas dos findings valem para esse commit)
 ```
 
 ## Summary

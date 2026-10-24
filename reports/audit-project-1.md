@@ -7,6 +7,7 @@ ARCHITECTURE AUDIT REPORT
 Project: code-smells-project
 Stack:   Python + Flask 3.1.1
 Files:   4 analyzed | ~780 lines of code
+Commit:  6d1ce62 (as linhas dos findings valem para esse commit)
 ```
 
 ## Summary

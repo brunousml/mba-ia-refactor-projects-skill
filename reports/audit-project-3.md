@@ -7,6 +7,7 @@ ARCHITECTURE AUDIT REPORT
 Project: task-manager-api
 Stack:   Python + Flask 3.0.0 (Flask-SQLAlchemy 3.1.1, SQLite)
 Files:   15 analyzed | ~1158 lines of code
+Commit:  6d1ce62 (as linhas dos findings valem para esse commit)
 ```
 
 ## Summary

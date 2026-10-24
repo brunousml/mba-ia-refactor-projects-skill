@@ -7,6 +7,7 @@ ARCHITECTURE AUDIT REPORT
 Project: ecommerce-api-legacy
 Stack:   JavaScript (Node.js 24) + Express 4.22.1
 Files:   3 analyzed | ~180 lines of code
+Commit:  6d1ce62 (as linhas dos findings valem para esse commit)
 ```
 
 ## Summary
