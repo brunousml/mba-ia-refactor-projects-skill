@@ -1,0 +1,4 @@
+2026-10-23T00:16:16.235Z INFO Frankenstein LMS rodando na porta 3000...
+2026-10-23T00:16:19.324Z INFO Pagamento processado {"userId":2,"courseId":2,"card":"****4444","status":"PAID"}
+2026-10-23T00:16:19.358Z INFO Pagamento processado {"userId":1,"courseId":1,"card":"****4444","status":"PAID"}
+2026-10-23T00:16:19.389Z INFO Pagamento processado {"userId":3,"courseId":1,"card":"****4444","status":"DENIED"}

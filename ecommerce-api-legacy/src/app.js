@@ -1,59 +1,29 @@
+// Entry point: só compõe a aplicação (config, banco, middlewares, rotas) e sobe o servidor.
 const express = require('express');
-const { settings } = require('./config/settings');
-const { createDatabase } = require('./models/db');
-const { createSchema, seed } = require('./models/schema');
-const { createUserModel } = require('./models/userModel');
-const { createCourseModel } = require('./models/courseModel');
-const { createEnrollmentModel } = require('./models/enrollmentModel');
-const { createPaymentModel } = require('./models/paymentModel');
-const { createAuditLogModel } = require('./models/auditLogModel');
-const { createReportModel } = require('./models/reportModel');
-const { createCheckoutService } = require('./services/checkoutService');
-const { createPaymentService } = require('./services/paymentService');
-const { createReportService } = require('./services/reportService');
-const { createUserService } = require('./services/userService');
-const { createCheckoutController } = require('./controllers/checkoutController');
-const { createReportController } = require('./controllers/reportController');
-const { createUserController } = require('./controllers/userController');
-const { createCheckoutRoutes } = require('./routes/checkoutRoutes');
-const { createAdminRoutes } = require('./routes/adminRoutes');
-const { createUserRoutes } = require('./routes/userRoutes');
+const config = require('./config/settings');
+const { openDatabase } = require('./models/database');
+const { initSchema } = require('./models/schema');
+const routes = require('./routes');
 const { errorHandler } = require('./middlewares/errorHandler');
-const { createAdminGuard } = require('./middlewares/adminGuard');
 const { logger } = require('./utils/logger');
 
 async function main() {
-    const db = createDatabase(':memory:');
-    await createSchema(db);
-    await seed(db);
-
-    const userModel = createUserModel(db);
-    const courseModel = createCourseModel(db);
-    const enrollmentModel = createEnrollmentModel(db);
-    const paymentModel = createPaymentModel(db);
-    const auditLogModel = createAuditLogModel(db);
-    const reportModel = createReportModel(db);
-
-    const paymentService = createPaymentService({ logger });
-    const checkoutService = createCheckoutService({ userModel, courseModel, enrollmentModel, paymentModel, auditLogModel, paymentService });
-    const reportService = createReportService({ reportModel });
-    const userService = createUserService({ userModel });
-
-    const adminGuard = createAdminGuard(settings);
+    // Banco criado uma vez no boot e injetado via app.locals (T07); nenhum módulo abre conexão sozinho.
+    const db = openDatabase(config.databaseFile);
+    await initSchema(db, { appEnv: config.appEnv });
 
     const app = express();
+    app.locals.db = db;
     app.use(express.json());
-    app.use(createCheckoutRoutes({ checkoutController: createCheckoutController({ checkoutService }) }));
-    app.use(createAdminRoutes({ reportController: createReportController({ reportService }), adminGuard }));
-    app.use(createUserRoutes({ userController: createUserController({ userService }), adminGuard }));
+    app.use(routes);
     app.use(errorHandler);
 
-    app.listen(settings.port, () => {
-        logger.info(`Frankenstein LMS rodando na porta ${settings.port}...`);
+    app.listen(config.port, () => {
+        logger.info(`Frankenstein LMS rodando na porta ${config.port}...`);
     });
 }
 
 main().catch((err) => {
-    logger.error('Falha no boot', err);
+    logger.error('Falha no boot', { error: err.stack || String(err) });
     process.exit(1);
 });

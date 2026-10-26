@@ -1,17 +1,14 @@
+// Hash de senha com scrypt e salt aleatório (T04). O formato armazenado é "<salt hex>:<digest hex>".
 const crypto = require('crypto');
 
 const KEY_LENGTH = 64;
-const SALT_BYTES = 16;
 
-// Formato armazenado: "<salt hex>:<digest hex>" (scrypt da stdlib).
 function hashPassword(password) {
-    const salt = crypto.randomBytes(SALT_BYTES);
+    const salt = crypto.randomBytes(16);
     return `${salt.toString('hex')}:${crypto.scryptSync(password, salt, KEY_LENGTH).toString('hex')}`;
 }
 
-// Nunca lança: hash em formato inesperado devolve false.
 function verifyPassword(password, stored) {
-    if (typeof password !== 'string') return false;
     const [saltHex, digestHex] = String(stored).split(':');
     if (!saltHex || !digestHex) return false;
     const expected = Buffer.from(digestHex, 'hex');

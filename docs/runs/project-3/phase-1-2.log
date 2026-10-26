@@ -1,23 +1,24 @@
+## Fase 1
+
 ```
 ================================
 PHASE 1: PROJECT ANALYSIS
 ================================
-Language:      Python 3.13.15 (.venv do projeto)
-Framework:     Flask 3.0.0 + Flask-SQLAlchemy 3.1.1
-Dependencies:  flask-cors 4.0.0, marshmallow 3.20.1 (sem uso), requests 2.31.0 (sem uso), python-dotenv 1.0.0 (sem uso)
-Domain:        Gerenciador de tarefas com usuários, categorias e relatórios de produtividade
-Architecture:  Camadas parciais: models/ existe (models/task.py), mas as rotas (routes/task_routes.py, routes/report_routes.py) consultam o banco e calculam regras de negócio, e services/ e utils/ não são usados
-Source files:  15 files analyzed
-DB tables:     users, categories, tasks (SQLite em arquivo: instance/tasks.db)
+Language:      Python (versão não declarada: não há pyproject nem .python-version)
+Framework:     Flask 3.0.0
+Dependencies:  flask-sqlalchemy 3.1.1, flask-cors 4.0.0, marshmallow 3.20.1 (sem uso), requests 2.31.0 (sem uso), python-dotenv 1.0.0 (sem uso)
+Domain:        API de gerenciamento de tarefas, com usuários, categorias e relatórios de produtividade
+Architecture:  Camadas parciais: existem models/, routes/, services/ e utils/, mas routes/task_routes.py e routes/report_routes.py consultam o banco e calculam regras de negócio dentro dos handlers, e services/ não é usado
+Source files:  15 files analyzed (app.py, database.py, seed.py, models/{__init__,category,task,user}.py, routes/{__init__,report_routes,task_routes,user_routes}.py, services/{__init__,notification_service}.py, utils/{__init__,helpers}.py)
+DB tables:     users, tasks, categories (SQLite em arquivo, sqlite:///tasks.db)
 Routes:        22 (inventário abaixo)
 ================================
 ```
 
-**Arquivos:** `app.py`, `database.py`, `seed.py`, `models/{__init__,category,task,user}.py`, `routes/{__init__,report_routes,task_routes,user_routes}.py`, `services/{__init__,notification_service}.py`, `utils/{__init__,helpers}.py`.
+- **Boot:** `python app.py` (app.py:33-34), porta **5000** fixa no código, `debug=True`, `host=0.0.0.0`. O `db.create_all()` roda no import (app.py:30-31).
+- **Banco/seed:** `instance/tasks.db`. O `seed.py` apaga tudo e recria 3 usuários (senhas `1234`/`abcd`/`pass`, em MD5), 4 categorias e 10 tasks.
 
-**Boot:** `python app.py`, que roda `db.create_all()` e `app.run(debug=True, host='0.0.0.0', port=5000)` (`app.py:30-34`). A porta 5000 é fixa no código. O seed é `python seed.py`: ele apaga e recria 3 usuários, 4 categorias e 10 tasks. O banco é o `instance/tasks.db` (estado persistente).
-
-| # | Método | Caminho | Registro | Handler |
+| # | Método | Caminho | Arquivo:linha | Handler |
 |---|---|---|---|---|
 | 1 | GET | `/health` | app.py:22 | health |
 | 2 | GET | `/` | app.py:26 | index |
@@ -42,9 +43,9 @@ Routes:        22 (inventário abaixo)
 | 21 | PUT | `/categories/<int:cat_id>` | routes/report_routes.py:190 | update_category |
 | 22 | DELETE | `/categories/<int:cat_id>` | routes/report_routes.py:211 | delete_category |
 
-Os blueprints são registrados sem `url_prefix` (`app.py:18-20`), então os caminhos acima já são os completos.
+## Fase 2
 
----
+`../reports/audit-project-3.md` já existia. Conferi cada `arquivo:linha` contra o código atual e todos batem. O conteúdo ficou igual e não precisei reescrever o arquivo.
 
 # Architecture Audit Report: task-manager-api
 
@@ -53,107 +54,109 @@ Os blueprints são registrados sem `url_prefix` (`app.py:18-20`), então os cami
 ARCHITECTURE AUDIT REPORT
 ================================
 Project: task-manager-api
-Stack:   Python 3.13 + Flask 3.0.0 (Flask-SQLAlchemy 3.1.1, SQLite)
+Stack:   Python + Flask 3.0.0 (Flask-SQLAlchemy 3.1.1, SQLite)
 Files:   15 analyzed | ~1158 lines of code
 ```
 
 ## Summary
-CRITICAL: 4 | HIGH: 3 | MEDIUM: 5 | LOW: 2
+CRITICAL: 5 | HIGH: 3 | MEDIUM: 5 | LOW: 2
 
 ## Findings
 
 ### [CRITICAL] Hardcoded Credentials (AP-01)
-File: app.py:13, services/notification_service.py:7-10
-Description: A `SECRET_KEY` do Flask é o literal `'super-secret-key-123'` e o `NotificationService` guarda host, usuário (`taskmanager@gmail.com`) e senha SMTP (`'senha123'`) como literais na classe. A URI do banco (app.py:11) também é fixa no código, sem ser segredo.
-Impact: Quem tem acesso ao repositório obtém a chave de assinatura da aplicação e a senha da conta de e-mail.
-Recommendation: T01 (módulo `config.py` lendo variáveis de ambiente, sem default para segredos; o serviço de notificação é código morto e sai junto, ver AP-12).
+File: app.py:13, services/notification_service.py:9-10
+Description: `SECRET_KEY = 'super-secret-key-123'` está fixo no entry point e o `NotificationService` guarda usuário e senha SMTP (`taskmanager@gmail.com` / `senha123`) como literais.
+Impact: Quem lê o repositório obtém a chave de assinatura da aplicação e a credencial do e-mail.
+Recommendation: T01 — mover para módulo de config lido de variáveis de ambiente (`SECRET_KEY`, `SMTP_*`), com `.env.example` sem valores reais.
 
-### [CRITICAL] Password Hash Exposed in Responses and Weak MD5 Hashing (AP-04)
-File: models/user.py:21, models/user.py:27-32, routes/user_routes.py:33, routes/user_routes.py:85, routes/user_routes.py:129, routes/user_routes.py:209
-Description: `User.to_dict()` inclui o campo `password`, e quatro rotas devolvem essa serialização: `GET /users/<id>` (33), `POST /users` (85), `PUT /users/<id>` (129) e `POST /login` (209). A senha é guardada com MD5 sem salt (`hashlib.md5`, linhas 29 e 32).
-Impact: Qualquer cliente lê o hash de qualquer usuário, e hashes MD5 sem salt de senhas curtas (o seed usa `1234`, `abcd`, `pass`) são revertidos em segundos.
-Recommendation: T05 (serialização explícita sem `password`), T04 (hash forte com salt via `werkzeug.security`, já instalado com o Flask) e refazer o seed com as mesmas senhas de exemplo.
+### [CRITICAL] Sensitive Data Exposed and Weak Password Hash (AP-04)
+File: models/user.py:21, models/user.py:29, models/user.py:32, routes/user_routes.py:33, routes/user_routes.py:85, routes/user_routes.py:129, routes/user_routes.py:209
+Description: `User.to_dict()` inclui o campo `password`, devolvido por `GET /users/<id>`, `POST /users`, `PUT /users/<id>` e `POST /login`; a senha é guardada com MD5 sem salt.
+Impact: Qualquer cliente lê o hash de qualquer usuário e o MD5 sem salt é revertido por tabela pronta em segundos.
+Recommendation: T04 (hash forte com salt, `werkzeug.security`) e T05 (serializer sem `password`). Exige refazer o seed mantendo as senhas de exemplo.
 
-### [CRITICAL] Unauthenticated Destructive Endpoints (AP-07)
-File: routes/report_routes.py:211, routes/task_routes.py:225, routes/user_routes.py:134, routes/user_routes.py:140-142
-Description: `DELETE /categories/<id>`, `DELETE /tasks/<id>` e `DELETE /users/<id>` não têm nenhuma verificação de identidade. A exclusão de usuário apaga em cascata todas as tasks dele (140-142).
-Impact: Qualquer cliente apaga usuários, tasks e categorias, inclusive em massa via cascata.
-Recommendation: T08 (decorator de autorização administrativa; enquanto não houver autenticação real, proteger por flag de ambiente desligada por padrão, respondendo 403).
+### [CRITICAL] God Modules Mixing Data Access, Business Rules and Routing (AP-03)
+File: routes/report_routes.py:12-223, routes/task_routes.py:11-299
+Description: `task_routes.py` (299 linhas) registra rotas, consulta o banco direto e calcula atraso e taxa de conclusão; `report_routes.py` faz o mesmo para relatórios e ainda abriga o CRUD de categorias, que não é do domínio de relatório.
+Impact: Nenhuma regra pode ser testada sem HTTP e banco, e qualquer mudança mexe nas três camadas ao mesmo tempo.
+Recommendation: T03 (separar models/serviços/controllers/rotas por domínio: tasks, users, categories, reports) e T06 (regras de atraso e estatística em serviço).
 
-### [CRITICAL] Client-Controlled Role on User Create and Update (AP-15)
-File: routes/user_routes.py:52, routes/user_routes.py:71-72, routes/user_routes.py:119-122
-Description: `POST /users` aceita `role` do corpo (default `'user'`) e `PUT /users/<id>` permite trocar o `role`, ambos sem autenticação; basta enviar `"role": "admin"`.
-Impact: Qualquer cliente cria uma conta administradora ou promove uma conta existente.
-Recommendation: T18 (cadastro público sempre cria `role='user'`; troca de `role` só pelo caminho administrativo protegido de T08).
+### [CRITICAL] Destructive and Sensitive Endpoints Without Authentication (AP-07)
+File: routes/report_routes.py:12, routes/report_routes.py:103, routes/report_routes.py:211, routes/task_routes.py:225, routes/user_routes.py:10, routes/user_routes.py:27, routes/user_routes.py:134
+Description: Exclusão de usuário (com cascata nas tasks), de task e de categoria, além da leitura de dados pessoais (lista de usuários com e-mail e papel, detalhe de usuário, relatórios com e-mails e produtividade), não exigem nenhuma identidade.
+Impact: Qualquer pessoa na rede apaga dados ou extrai a base de usuários.
+Recommendation: T08 — guard de administração (`ENABLE_ADMIN_ROUTES` + `X-Admin-Token`) para exclusões e relatórios, e de leitura sensível (`ENABLE_SENSITIVE_READS`) para `/users` e `/users/<id>`.
 
-### [HIGH] Debug Mode and Open CORS Hardcoded (AP-15)
+### [CRITICAL] Privilege Escalation via Client-Supplied Role (AP-15)
+File: routes/user_routes.py:52, routes/user_routes.py:71-78, routes/user_routes.py:119-122
+Description: `POST /users` e `PUT /users/<id>` aceitam o campo `role` do corpo (inclusive `admin`) sem autenticação.
+Impact: Qualquer cliente cria uma conta admin ou promove a própria conta.
+Recommendation: T18 — ignorar/rejeitar `role` vindo do cliente sem guard de administração; cadastro público sempre cria `user`.
+
+### [HIGH] Insecure Configuration: Debug Mode and Open CORS (AP-15)
 File: app.py:15, app.py:34
-Description: `CORS(app)` libera todas as origens para todas as rotas, inclusive as que alteram dados, e `app.run(debug=True, host='0.0.0.0')` liga o depurador interativo do Werkzeug escutando em todas as interfaces, sem depender do ambiente.
-Impact: O depurador permite execução de código remoto para quem alcança a porta, e qualquer site pode disparar escrita na API a partir do navegador do usuário.
-Recommendation: T18 (debug e origens permitidas vindos de variáveis de ambiente, debug desligado por padrão).
+Description: `CORS(app)` libera qualquer origem para todas as rotas, incluindo as que alteram dados, e `app.run(debug=True, host='0.0.0.0')` liga o depurador sem depender do ambiente.
+Impact: O depurador do Werkzeug exposto em 0.0.0.0 permite execução de código, e qualquer site pode disparar escritas.
+Recommendation: T18 — `debug` e origens de CORS vindos da config/ambiente, com default seguro.
 
-### [HIGH] Business Rules and Data Access Inside Route Handlers (AP-05)
-File: routes/report_routes.py:12-101, routes/report_routes.py:103-155, routes/report_routes.py:157-223, routes/task_routes.py:11-63, routes/task_routes.py:273-299, routes/user_routes.py:140-142
-Description: Os handlers consultam o banco diretamente e calculam regra de domínio: atraso (`overdue`) e taxa de conclusão (task_routes.py:273-299), relatório geral com dias de atraso e produtividade por usuário (report_routes.py:12-101), estatísticas por usuário (103-155) e exclusão em cascata (user_routes.py:140-142). O CRUD de categorias está dentro do arquivo de relatórios (157-223). Não foi classificado como god module (AP-03) porque o mapeamento de dados está separado em `models/` e não há DDL nem seed nas rotas; é o padrão de camadas parciais.
-Impact: Nenhuma regra de relatório ou de atraso pode ser testada nem reutilizada sem passar pela requisição HTTP.
-Recommendation: T06 (services de task, user, report e category chamando os models; controllers só leem a requisição e respondem; categorias ganham arquivos próprios).
+### [HIGH] Write Endpoints Without Authentication and Fake Login Token (AP-07)
+File: routes/report_routes.py:167, routes/report_routes.py:190, routes/task_routes.py:85, routes/task_routes.py:156, routes/user_routes.py:42, routes/user_routes.py:92, routes/user_routes.py:210
+Description: Criação e atualização de tasks, categorias e usuários não exigem identidade; o `/login` devolve `fake-jwt-token-<id>`, que nenhuma rota verifica.
+Impact: Qualquer cliente altera dados de qualquer usuário, e o login não protege nada.
+Recommendation: T08 — guard de escrita (`ENABLE_WRITE_ROUTES` + `X-Admin-Token`) nos POST/PUT; manter o formato de resposta do login.
 
-### [HIGH] Reports and Fake Login Token Without Real Authentication (AP-07)
-File: routes/report_routes.py:12, routes/report_routes.py:103, routes/user_routes.py:185-211
-Description: `GET /reports/summary` e `GET /reports/user/<id>` devolvem a produtividade de todos os usuários e o e-mail de qualquer usuário sem verificação. `POST /login` devolve `'fake-jwt-token-' + str(user.id)` (linha 210), um token previsível que nenhuma rota verifica.
-Impact: Não existe autenticação real na API; o token só dá a impressão de proteção.
-Recommendation: T08 (relatórios atrás da mesma proteção administrativa; o token falso é documentado como limitação até haver autenticação real).
+### [HIGH] Business Rules and Data Access in Route Handlers (AP-05)
+File: routes/user_routes.py:12-24, routes/user_routes.py:67-78, routes/user_routes.py:140-142, routes/user_routes.py:171-180
+Description: As rotas de usuário consultam o banco direto, decidem unicidade de e-mail e papel, fazem exclusão em cascata das tasks e calculam atraso dentro do handler.
+Impact: As regras não podem ser reutilizadas nem testadas sem subir a camada HTTP.
+Recommendation: T06 — mover para `UserService`/models; o controller só valida formato e traduz a resposta.
 
-### [MEDIUM] Deprecated datetime.utcnow and Query.get (AP-10)
-File: models/category.py:11, models/task.py:15-16, models/task.py:52, models/user.py:14, routes/report_routes.py:35, routes/report_routes.py:42, routes/report_routes.py:45, routes/report_routes.py:71, routes/report_routes.py:105, routes/report_routes.py:133, routes/report_routes.py:192, routes/report_routes.py:213, routes/task_routes.py:31, routes/task_routes.py:42, routes/task_routes.py:51, routes/task_routes.py:67, routes/task_routes.py:72, routes/task_routes.py:117, routes/task_routes.py:122, routes/task_routes.py:158, routes/task_routes.py:188, routes/task_routes.py:195, routes/task_routes.py:215, routes/task_routes.py:227, routes/task_routes.py:285, routes/user_routes.py:29, routes/user_routes.py:94, routes/user_routes.py:136, routes/user_routes.py:155, routes/user_routes.py:172, seed.py:66-74, services/notification_service.py:35, utils/helpers.py:38
-Description: `datetime.utcnow` é chamado nas rotas e referenciado como default/onupdate de coluna nos models (obsoleto desde Python 3.12; equivalente: `datetime.now(timezone.utc)`, e como default `lambda: ...`). `Model.query.get(id)` é a API legada do SQLAlchemy 2.x (equivalente: `db.session.get(Model, id)`).
-Impact: Gera `DeprecationWarning`/`LegacyAPIWarning` hoje e quebra quando os símbolos forem removidos.
-Recommendation: T11 (helper `utcnow()` sem fuso, para manter o formato gravado no SQLite, e `db.session.get`).
+### [MEDIUM] Deprecated APIs: datetime.utcnow and Query.get (AP-10)
+File: models/category.py:11, models/task.py:15-16, models/task.py:52, models/user.py:14, routes/report_routes.py:35, routes/report_routes.py:42, routes/report_routes.py:45, routes/report_routes.py:71, routes/report_routes.py:105, routes/report_routes.py:133, routes/report_routes.py:192, routes/report_routes.py:213, routes/task_routes.py:31, routes/task_routes.py:42, routes/task_routes.py:51, routes/task_routes.py:67, routes/task_routes.py:72, routes/task_routes.py:117, routes/task_routes.py:122, routes/task_routes.py:158, routes/task_routes.py:188, routes/task_routes.py:195, routes/task_routes.py:215, routes/task_routes.py:227, routes/task_routes.py:285, routes/user_routes.py:29, routes/user_routes.py:94, routes/user_routes.py:136, routes/user_routes.py:155, routes/user_routes.py:172, services/notification_service.py:35, utils/helpers.py:38, seed.py:66-74
+Description: `datetime.utcnow` é chamado e referenciado como default de coluna (obsoleto desde Python 3.12; equivalente: `datetime.now(timezone.utc)` / `lambda: datetime.now(timezone.utc)`), e `Model.query.get()` é a API legada do SQLAlchemy 2.x (equivalente: `db.session.get(Model, id)`).
+Impact: Warnings hoje e quebra quando os símbolos forem removidos.
+Recommendation: T11 — trocar pelos equivalentes modernos mantendo o formato de data serializado.
 
-### [MEDIUM] Duplicated Overdue Rule, Serialization and Validation (AP-13)
-File: models/task.py:50-60, routes/report_routes.py:34-36, routes/report_routes.py:132-135, routes/task_routes.py:17-39, routes/task_routes.py:71-80, routes/task_routes.py:92-144, routes/task_routes.py:166-213, routes/task_routes.py:283-287, routes/user_routes.py:61, routes/user_routes.py:106, routes/user_routes.py:171-180, utils/helpers.py:57-108
-Description: A regra de atraso aparece em seis lugares enquanto `Task.is_overdue()` (models/task.py:50-60) nunca é chamado; `GET /tasks` remonta à mão o que `Task.to_dict()` já faz (task_routes.py:17-28); a validação de task existe no POST, no PUT e em `process_task_data` (não usada); a lista de status e o regex de e-mail são repetidos. As cópias já divergem: o POST responde `'Formato de data inválido. Use YYYY-MM-DD'` e o PUT `'Formato de data inválido'`; `process_task_data` aceita `dd/mm/YYYY` e as rotas não.
-Impact: Uma mudança de regra precisa ser repetida em vários arquivos, e as divergências já existentes passam despercebidas.
-Recommendation: T16 (regra de atraso e serialização no model, validação de task num único módulo do service, constantes de domínio num só lugar).
+### [MEDIUM] Duplicated Logic with Diverging Copies (AP-13)
+File: models/task.py:39-60, routes/report_routes.py:33-36, routes/report_routes.py:132-135, routes/task_routes.py:30-39, routes/task_routes.py:71-80, routes/task_routes.py:110, routes/task_routes.py:177, routes/task_routes.py:284-287, routes/user_routes.py:61, routes/user_routes.py:106, routes/user_routes.py:171-180, utils/helpers.py:21, utils/helpers.py:57-108
+Description: A regra de "atrasada" está copiada em seis lugares, enquanto `Task.is_overdue()` não é chamado; a lista de status e a regex de e-mail se repetem; `process_task_data` existe mas não é usado, e as cópias já divergem (o helper aceita `dd/mm/YYYY` e converte priority, as rotas não).
+Impact: Corrigir a regra num lugar deixa os outros endpoints respondendo diferente.
+Recommendation: T16 — uma única implementação no model/serviço, usada por todas as rotas.
 
-### [MEDIUM] N+1 Queries in Listings and Reports (AP-08)
-File: routes/report_routes.py:55-56, routes/report_routes.py:163, routes/task_routes.py:41-57, routes/user_routes.py:22
-Description: `GET /tasks` faz duas consultas por task (usuário e categoria); `GET /users` carrega a relação lazy `u.tasks` só para contar; o relatório geral consulta as tasks de cada usuário; `GET /categories` conta as tasks de cada categoria. O relatório geral ainda dispara 12 `count()` separados (report_routes.py:15-28).
-Impact: O número de consultas cresce linearmente com o volume de dados.
-Recommendation: T09 (`joinedload`/agregação com `GROUP BY` numa única consulta).
+### [MEDIUM] N+1 Queries (AP-08)
+File: routes/report_routes.py:55-56, routes/report_routes.py:161-163, routes/task_routes.py:41-42, routes/task_routes.py:50-51, routes/user_routes.py:14-22
+Description: `GET /tasks` consulta usuário e categoria para cada task, `GET /users` carrega `u.tasks` (lazy) em laço só para contar, `GET /categories` e `/reports/summary` fazem um `count`/`filter` por categoria e por usuário.
+Impact: O número de consultas cresce linearmente com os registros.
+Recommendation: T09 — `joinedload`/agregação com `GROUP BY`.
 
-### [MEDIUM] Missing Input Validation Causes 500 Errors (AP-14)
-File: routes/report_routes.py:180, routes/report_routes.py:196-197, routes/task_routes.py:93-99, routes/task_routes.py:113, routes/task_routes.py:167, routes/task_routes.py:182, routes/task_routes.py:261, routes/task_routes.py:264, routes/user_routes.py:103, routes/user_routes.py:106, routes/user_routes.py:115, routes/user_routes.py:125
-Description: `priority` é comparado com número sem checar o tipo (`"alta" < 1` gera `TypeError`); `title`, `email` e `password` não string quebram em `len()`/`re.match`; `?priority=abc` e `?user_id=abc` quebram em `int()`; `PUT /categories/<id>` sem corpo quebra em `'name' in None`; `name` vazio no PUT de usuário viola `NOT NULL`; `active` e `color` aceitam qualquer valor (`is_valid_color` existe e não é usado).
-Impact: Entrada malformada devolve 500 em vez de 400, e dados inválidos chegam ao banco.
-Recommendation: T17 (validação de tipo e faixa na borda, respondendo 400 com mensagem).
+### [MEDIUM] Missing Input Validation (AP-14)
+File: routes/report_routes.py:180, routes/report_routes.py:196-202, routes/task_routes.py:96-100, routes/task_routes.py:113, routes/task_routes.py:167-169, routes/task_routes.py:182, routes/task_routes.py:261, routes/task_routes.py:264, routes/user_routes.py:115, routes/user_routes.py:125
+Description: `priority` string é comparado com número (TypeError → 500), `title`/`password` não-string passam por `len()`, `PUT /categories/<id>` usa `data` sem checar `None`, `int(priority)`/`int(user_id)` na busca estouram com texto, `color` e `active` não têm validação de formato/tipo.
+Impact: Entradas inválidas viram 500 em vez de 400 e dados inconsistentes entram no banco.
+Recommendation: T17 — validar tipo e faixa na borda e responder 400.
 
-### [MEDIUM] Bare Excepts and No Central Error Handler (AP-09)
-File: routes/report_routes.py:186-188, routes/report_routes.py:207-209, routes/report_routes.py:221-223, routes/task_routes.py:62-63, routes/task_routes.py:137, routes/task_routes.py:151-154, routes/task_routes.py:204, routes/task_routes.py:221-223, routes/task_routes.py:236-238, routes/user_routes.py:87-90, routes/user_routes.py:130-132, routes/user_routes.py:149-151, services/notification_service.py:23-25, utils/helpers.py:46, utils/helpers.py:49, utils/helpers.py:88
-Description: Há `except:` sem tipo em quase todos os handlers; `GET /tasks` envolve a listagem inteira num `except:` que devolve `'Erro interno'` sem registrar nada (62-63). Não existe `errorhandler` na aplicação, então cada rota decide sozinha e falhas de validação viram 500 (ver AP-14).
-Impact: Bugs reais ficam invisíveis e o cliente não distingue erro de entrada de falha do servidor.
-Recommendation: T10 (exceções de domínio com status, handler central em `app.py` com log, `except` específico onde houver captura).
+### [MEDIUM] Generic or Swallowed Error Handling (AP-09)
+File: routes/report_routes.py:186-188, routes/report_routes.py:207-209, routes/report_routes.py:221-223, routes/task_routes.py:62-63, routes/task_routes.py:137, routes/task_routes.py:151-154, routes/task_routes.py:204, routes/task_routes.py:221-223, routes/task_routes.py:236-238, routes/user_routes.py:87-90, routes/user_routes.py:130-132, routes/user_routes.py:149-151, services/notification_service.py:23-25, utils/helpers.py:46-50, utils/helpers.py:88-89
+Description: `except:` sem tipo em toda parte, erros só impressos com `str(e)` e nenhum handler central; cada rota devolve "Erro interno" genérico.
+Impact: Falhas reais ficam invisíveis e erros de validação não se distinguem de bugs.
+Recommendation: T10 — handlers centrais de erro (`errorhandler`) e exceções de domínio tipadas.
 
-### [LOW] Dead Code, Unused Imports, Print as Log and Short Names (AP-12)
-File: app.py:7, models/task.py:3, models/task.py:38-48, models/user.py:34-38, routes/report_routes.py:7-8, routes/task_routes.py:7, routes/task_routes.py:149, routes/task_routes.py:153, routes/task_routes.py:219, routes/task_routes.py:234, routes/user_routes.py:6, routes/user_routes.py:83, routes/user_routes.py:89, routes/user_routes.py:147, services/notification_service.py:4-48, utils/helpers.py:3-7, utils/helpers.py:9-116
-Description: Imports sem uso (`os, sys, json` em app.py:7; `json, os, sys, time` em task_routes.py:7; `hashlib, json` em user_routes.py:6; `format_date, calculate_percentage, json` em report_routes.py:7-8). `NotificationService` e todo `utils/helpers.py` nunca são chamados; `validate_status`, `validate_priority` e `is_admin` também não. Condicionais aninhadas devolvendo `True`/`False` (models/task.py:38-60, models/user.py:34-38). `print` usado como log nas rotas. Nomes de uma letra (`t`, `u`, `c`, `p1`..`p5`).
-Impact: Ruído que esconde o código vivo e logs sem nível nem destino configurável.
-Recommendation: T14 (remover código morto e imports), T13 (`logging` no lugar de `print`), T15 (nomes descritivos e expressões booleanas diretas).
+### [LOW] Dead Code, Unused Imports, Print as Log and Verbose Booleans (AP-12)
+File: app.py:7, models/task.py:3, models/task.py:38-60, models/user.py:34-38, routes/report_routes.py:7-8, routes/task_routes.py:7, routes/task_routes.py:149, routes/task_routes.py:153, routes/task_routes.py:219, routes/task_routes.py:234, routes/user_routes.py:6, routes/user_routes.py:83, routes/user_routes.py:89, routes/user_routes.py:147, services/notification_service.py:1-48, utils/helpers.py:3-7, utils/helpers.py:9-116
+Description: Imports sem uso (`os, sys, json`, `hashlib`, `format_date`, `calculate_percentage`), `NotificationService` e quase todo `utils/helpers.py` nunca usados, `print` como log e condicionais aninhadas que só devolvem `True`/`False`.
+Impact: Ruído na leitura e falsa impressão de que existe validação/notificação.
+Recommendation: T13 (logger), T14 (remover código morto) e T15 (simplificar booleanos).
 
 ### [LOW] Magic Numbers and Strings (AP-11)
-File: routes/report_routes.py:24-28, routes/report_routes.py:45, routes/report_routes.py:129, routes/task_routes.py:96-100, routes/task_routes.py:110, routes/task_routes.py:113, routes/user_routes.py:64, routes/user_routes.py:71, routes/user_routes.py:210, utils/helpers.py:110-116
-Description: Faixa de prioridade `1..5`, limites de título `3`/`200`, senha mínima `4`, janela de `7` dias, "alta prioridade" como `<= 2`, listas de status e de roles e o prefixo `'fake-jwt-token-'` aparecem como literais; as constantes com esses nomes existem em `utils/helpers.py:110-116` e não são usadas.
-Impact: Mudar um limite exige caçar cada literal, com risco de esquecer um.
-Recommendation: T12 (constantes de domínio num módulo único, usadas por models e services).
+File: routes/report_routes.py:45, routes/report_routes.py:129, routes/report_routes.py:180, routes/task_routes.py:96-114, routes/user_routes.py:64, routes/user_routes.py:71
+Description: Janela de 7 dias, `priority <= 2` como "alta", limites 3/200 do título, 4 da senha, cor `#000000` e listas de status/papel em literais; as constantes de `utils/helpers.py:110-116` existem mas não são usadas.
+Impact: Mudar uma regra exige caçar literais espalhados.
+Recommendation: T12 — constantes nomeadas num módulo de domínio/config.
 
 ```
 ================================
-Total: 14 findings
+Total: 15 findings
 ================================
 ```
-
-O relatório foi salvo em `../reports/audit-project-3.md`. Não incluí AP-02, AP-03 e AP-06. A busca usa `.like()` do ORM, que passa os valores como parâmetros e não permite injeção. O motivo de não ser AP-03 está no finding AP-05. A lista `notifications` pertence a uma instância de uma classe que nunca é usada, então não é estado global.
 
 Phase 2 complete. Proceed with refactoring (Phase 3)? [y/n]
-
-exit=0

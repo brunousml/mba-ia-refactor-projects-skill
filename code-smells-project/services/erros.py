@@ -1,7 +1,10 @@
-class ErroDeNegocio(Exception):
-    """Erro de domínio com status sugerido. `sucesso` só entra no corpo quando a rota original o devolvia."""
+class ErroDominio(Exception):
+    """Erro de regra de negócio. O middleware de erro traduz para a resposta (T10).
 
-    def __init__(self, mensagem, status=400, sucesso=None):
+    `corpo_extra` acrescenta chaves ao corpo JSON, para manter o contrato de cada rota.
+    """
+
+    def __init__(self, mensagem, status=400, corpo_extra=None):
         super().__init__(mensagem)
         self.status = status
-        self.sucesso = sucesso
+        self.corpo_extra = corpo_extra or {}

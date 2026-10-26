@@ -1,36 +1,43 @@
-const { DomainError } = require('../errors/domainErrors');
-const { PAYMENT_STATUS } = require('../config/rules');
+const { DomainError } = require('../errors/domainError');
+const { APPROVED_CARD_PREFIX, PAYMENT_STATUS } = require('../config/rules');
 const { hashPassword, verifyPassword } = require('../utils/password');
+const { logger, maskCard } = require('../utils/logger');
+const courseModel = require('../models/courseModel');
+const userModel = require('../models/userModel');
+const enrollmentModel = require('../models/enrollmentModel');
+const paymentModel = require('../models/paymentModel');
+const auditLogModel = require('../models/auditLogModel');
 
-function createCheckoutService({ userModel, courseModel, enrollmentModel, paymentModel, auditLogModel, paymentService }) {
-    // Usuário existente precisa da senha correta; usuário novo precisa informar uma senha.
-    async function resolveUserId({ name, email, password }) {
-        const user = await userModel.findCredentialsByEmail(email);
-        if (user) {
-            if (!verifyPassword(password, user.passwordHash)) throw new DomainError("Não autorizado", 401);
-            return user.id;
-        }
-        if (!password) throw new DomainError("Senha obrigatória", 400);
-        return userModel.create({ name, email, passwordHash: hashPassword(password) });
-    }
-
-    async function checkout({ name, email, password, courseId, cardNumber }) {
-        const course = await courseModel.findActiveById(courseId);
-        if (!course) throw new DomainError("Curso não encontrado", 404);
-
-        const userId = await resolveUserId({ name, email, password });
-
-        const status = paymentService.authorize({ cardNumber, courseId });
-        if (status === PAYMENT_STATUS.DENIED) throw new DomainError("Pagamento recusado", 400);
-
-        const enrollmentId = await enrollmentModel.create({ userId, courseId });
-        await paymentModel.create({ enrollmentId, amount: course.price, status });
-        await auditLogModel.record(`Checkout curso ${courseId} por ${userId}`);
-
-        return { enrollmentId };
-    }
-
-    return { checkout };
+function paymentStatusFor(card) {
+    return card.startsWith(APPROVED_CARD_PREFIX) ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.DENIED;
 }
 
-module.exports = { createCheckoutService };
+async function findOrCreateUserId(db, { name, email, password }) {
+    const user = await userModel.findByEmail(db, email);
+    if (user) {
+        // Conta existente: só o dono, com a senha, pode usá-la no checkout (AP-07).
+        if (!password || !verifyPassword(password, user.passwordHash)) throw new DomainError('Credenciais inválidas', 401);
+        return user.id;
+    }
+    if (!password) throw new DomainError('Senha obrigatória para novo usuário', 400);
+    return (await userModel.create(db, { name, email, passwordHash: hashPassword(password) })).lastID;
+}
+
+async function checkout(db, { name, email, password, courseId, card }) {
+    const course = await courseModel.findActiveById(db, courseId);
+    if (!course) throw new DomainError('Curso não encontrado', 404);
+
+    const userId = await findOrCreateUserId(db, { name, email, password });
+
+    const status = paymentStatusFor(card);
+    logger.info('Pagamento processado', { userId, courseId, card: maskCard(card), status });
+    if (status === PAYMENT_STATUS.DENIED) throw new DomainError('Pagamento recusado', 400);
+
+    const enrollmentId = (await enrollmentModel.create(db, { userId, courseId })).lastID;
+    await paymentModel.create(db, { enrollmentId, amount: course.price, status });
+    await auditLogModel.record(db, `Checkout curso ${courseId} por ${userId}`);
+
+    return { enrollmentId };
+}
+
+module.exports = { checkout, paymentStatusFor };

@@ -1,5 +1,5 @@
 def usuario_publico(usuario):
-    """Sem o campo senha."""
+    """Campos públicos de um usuário. O hash de senha nunca sai na resposta (T05)."""
     return {
         "id": usuario["id"],
         "nome": usuario["nome"],
@@ -7,7 +7,3 @@ def usuario_publico(usuario):
         "tipo": usuario["tipo"],
         "criado_em": usuario["criado_em"],
     }
-
-
-def usuario_login(usuario):
-    return {"id": usuario["id"], "nome": usuario["nome"], "email": usuario["email"], "tipo": usuario["tipo"]}

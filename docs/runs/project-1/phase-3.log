@@ -1,70 +1,57 @@
-A Fase 3 terminou. A aplicação sobe sem erro e todas as divergências em relação ao snapshot são intencionais. Ainda restam anti-patterns, e por isso a linha "Zero anti-patterns remaining" ficou ✗. Nada foi commitado.
+O agente de produtos terminou: 20 verdes e 12 vermelhos, e todos os vermelhos falham pelo motivo esperado. Os outros três continuam rodando. Pela regra da 3.2, não crio nenhum arquivo de produção antes deles terminarem.
+
+Estado atual:
+- **Feito:** diretório de trabalho, snapshot do original (47 casos), `conftest.py`, `test_produtos.py`.
+- **Em andamento:** `test_usuarios.py`, `test_pedidos.py` e `test_sistema_admin.py`.
+- **Pendente:** o `suite-original.txt`, a 3.3 (plano de estrutura) e a refatoração em quatro grupos.
+- **Pendência de você:** o processo do servidor original (PID 77565) segue na porta 5055. Não consegui encerrá-lo porque a permissão do `kill` foi negada. Pode rodar `kill 77565`.
+
+Aguardo as notificações dos subagentes restantes.
+
+Mais um subagente terminou: `test_usuarios.py` tem 9 verdes e 13 vermelhos, e todos os vermelhos falham pelo motivo esperado. Ele também corrigiu sozinho um payload de injeção SQL que não explorava o original. Esse ajuste faz o teste provar o que deve provar, então fica como está.
+
+Ainda faltam `test_pedidos.py` e `test_sistema_admin.py`. Enquanto isso não termina, não crio arquivos de produção.
+
+O subagente de sistema, relatório e admin terminou: 9 verdes e 12 vermelhos, todos pelo motivo esperado. Ele acrescentou um teste de flag cruzada em `/admin/reset-db`, o que não estava na lista, mas é simétrico ao de `/admin/query`.
+
+Falta só o de pedidos. Quando ele terminar, rodo a suíte completa no original e gravo o `suite-original.txt`.
+
+Feita a validação. O resultado é **VALIDATION FAILED**, com duas pendências que pedem decisão sua e uma de fechamento do box.
 
 ```
 ================================
-PHASE 3: REFACTORING COMPLETE
+VALIDATION FAILED
 ================================
-## New Project Structure
-code-smells-project/
-├── app.py                  entry point: config → Banco → middlewares → rotas → run
-├── .env.example
-├── README.md
-├── requirements.txt        (sem dependências novas)
-├── config/       settings.py (env), regras.py (constantes de domínio)
-├── routes/       produto, usuario, pedido, relatorio, sistema, admin (_routes.py) + __init__ (registrar_rotas)
-├── controllers/  produto, usuario, pedido, relatorio, sistema, admin (_controller.py)
-├── services/     produto, usuario, pedido, relatorio, sistema, admin (_service.py) + erros.py (ErroDeNegocio)
-├── models/       database.py (Banco, schema, seed), produto, usuario, pedido, admin (_model.py)
-├── serializers/  produto, usuario, pedido (_serializer.py)
-├── middlewares/  conexao.py (conexão por requisição), erros.py (handler central), admin.py (guard)
-└── utils/        senha.py (scrypt), tipos.py
+C1 CRITICAL/HIGH resolvidos   ✗  (1 pendente: AP-01)
+C2 Rotas protegidas (T08)      ✗  (19 rotas, 12 guardadas; POST /usuarios sem guard)
+C3 Comportamento               ✓  (off: 36 divergências, todas intencionais; on: 13, todas intencionais)
+C4 Testes                      ✓  (101 testes, 101 verdes; rotas cobertas 19/19)
+C5 Box coerente                ✗  (box de saída ainda não redigido)
 
-## Validation
-  ✓ Application boots without errors
-  ✓ All endpoints respond correctly (36/56 iguais ao snapshot, 20 mudanças intencionais; com a flag de admin ligada: 40/56, 16 intencionais)
-  ✗ Zero anti-patterns remaining
-
-## MVC checklist
-  ✓ Configuração extraída para módulo de config (sem hardcoded)
-  ✓ Models abstraem o acesso a dados
-  ✓ Views/Routes só fazem roteamento
-  ✓ Controllers concentram o fluxo da aplicação
-  ✓ Error handling centralizado
-  ✓ Entry point claro (só compõe a aplicação)
-
-## Intentional changes
-- GET /health: saem `secret_key`, `db_path` e `debug`; `ambiente` vem de APP_ENV ("development" em vez de "producao" fixo).
-- GET /usuarios e GET /usuarios/<id>: o campo `senha` saiu da resposta.
-- Senhas gravadas com hash scrypt. O seed foi refeito com as mesmas senhas de exemplo (admin123, 123456, senha123), e um loja.db antigo é convertido no boot.
-- POST /login: a injeção (`admin@loja.com' --`) passou de 200 para 401.
-- GET /produtos/busca: um termo com injeção SQL agora é tratado como texto (lista vazia, antes vinham todos os produtos).
-- POST /produtos com apóstrofo no nome: passou de 500 (erro de SQL) para 201.
-- POST /admin/reset-db e POST /admin/query: 403 por padrão; com ENABLE_ADMIN_ROUTES=true exigem X-Admin-Token (sem ele, 401; com ele, o comportamento original).
-- Corpo ausente ou que não é JSON em POST /produtos, /usuarios, /login e /pedidos: passou de 500 (415 vazado) para 400 "Dados inválidos". Em PUT /pedidos/<id>/status, passou para 400 "Status inválido".
-- Tipo inválido passou de 500 para 400: preco/estoque não numéricos, preco_min/preco_max não numéricos, usuario_id não inteiro.
-- POST /pedidos com quantidade ≤ 0 ou produto_id não inteiro: passou de 201 para 400 (antes gerava total negativo e aumentava o estoque).
-- PUT /pedidos/<id>/status com pedido inexistente: passou de 200 para 404.
-- PUT /produtos/<id>: agora aplica a mesma validação da criação (tamanho do nome, categoria e tipos), que antes faltava.
-- Erros 500 não tratados: o corpo passou a ser {"erro": "Erro interno"}, com o detalhe só no log (antes vazava str(e)).
-- Debug desligado por padrão (DEBUG=false); HOST, PORT, CORS e banco são configuráveis por ambiente (porta padrão 5000 mantida).
-- Logs: `print` virou `logging`, sem e-mail do usuário; as notificações simuladas viraram log informativo.
-
-## Anti-patterns remaining
-- AP-07 (CRITICAL): GET /usuarios, GET /usuarios/<id> e GET /relatorios/vendas continuam públicos. O projeto não tem autenticação real, e exigir identidade quebraria o contrato de todos os clientes. Mitigação: a senha saiu da resposta.
-- AP-07 (HIGH): as rotas de escrita (produtos e status de pedido) não exigem identidade, e o /login não emite token. Exige desenhar a autenticação, fora do escopo de "preservar contrato".
-- AP-15 (parcial): o CORS continua com "*" por padrão para não quebrar clientes de navegador. Agora é configurável por CORS_ORIGINS, e a API não usa cookies nem credenciais.
-- Observação (fora do catálogo): cancelar um pedido ainda não devolve o estoque, como no original. Mudar isso alteraria regra de negócio, então ficou só registrado.
+## Pendências
+- [CRITICAL] AP-01 — models/database.py:101-103 — o seed grava as senhas de exemplo como literais (`admin123`, `123456`, `senha123`) e roda também com APP_ENV=production. O playbook (T04) pede manter essas senhas, então o conflito entre T04 e AP-01 precisa de decisão sua.
+- [HIGH] AP-07 — routes/usuario_routes.py:8 — POST /usuarios é escrita sem guard. O C2 exige ENABLE_WRITE_ROUTES para todo POST. Liberar o cadastro público exige decisão sua.
+- [MEDIUM] AP-08 — services/pedido_service.py:17-27 — criar_pedido ainda consulta o produto duas vezes por item. Não bloqueia (MEDIUM), mas o T09 não foi aplicado ali; registro como resíduo no box.
+- [C5] — o box de saída será conferido depois que as duas decisões acima forem tomadas.
 ================================
 ```
 
-## O que você precisa saber
+**Observações que sustentam o veredito:**
 
-- **App original ainda rodando na porta 5050 (PIDs 18141 e 18146).** Não tive permissão para encerrá-los: `kill` foi negado. Pode encerrar com `kill 18141 18146`. Por isso, toda a validação rodou nas portas 5051–5054.
-- **O `loja.db` sumiu entre a Fase 1 e a Fase 3,** então não havia o que guardar de backup. O snapshot e a validação começaram de um banco recém-criado pelo seed, no mesmo estado inicial. O `loja.db` que existe agora no projeto foi recriado pelo app antigo e tem senhas em texto puro; o app novo converte essas senhas para hash no primeiro boot.
-- **Ordem dos grupos:** criei `config/regras.py` já no Grupo 3, porque a validação unificada (T16) precisava de uma fonte única de categorias e status. O resto do T12 entrou no Grupo 4.
-- **Também validado:**
-  - com `APP_ENV=production` e sem `SECRET_KEY`, o boot é recusado;
-  - um banco legado com senha em texto é migrado e o login continua dando 200/401;
-  - o `pyflakes` passa limpo.
-- **Material de trabalho:** está em `/tmp/refactor-p1.JioT/`. Inclui `before.json`, `after-g*.json`, os scripts de snapshot e comparação e os módulos originais.
+- **C2:** das 19 rotas, 12 têm guard (5 de escrita, 5 de leitura sensível, 2 de administração). As 7 sem guard são saúde, índice, login, cadastro de usuário e as leituras do catálogo. Só o cadastro (`POST /usuarios`) é um POST sem guard.
+- **C3:** com as flags desligadas, as 36 divergências são 33 respostas 403 de rotas guardadas, mais `c02` (chave removida e debug), `c08` e `c27` (500 virou 400). Com as flags ligadas e o token, sobram 13 divergências, todas já listadas como intencionais.
+- **C4:** a suíte roda inteira em 21 segundos, com os 4 arquivos de grupo gravados e nenhum teste de caracterização vermelho.
+- **AP-02:** o executor de SQL do `/admin/query` continua aceitando SQL do corpo. Ele fica atrás de `ENABLE_ADMIN_ROUTES` e do token, o que o T02 aceita. Isso vai para "Anti-patterns remaining" com o motivo, e não conta como pendência.
+
+**Preciso da sua decisão para continuar:**
+
+1. **AP-01 (seed):** qual caminho você escolhe?
+   - (a) Manter as senhas de exemplo e registrar como risco aceito, com a sua frase.
+   - (b) O seed só cria esses usuários fora de produção, com as senhas vindas de variável de ambiente.
+   - (c) Gerar senhas aleatórias e mostrá-las uma vez no boot.
+2. **AP-07 (`POST /usuarios`):** o cadastro deve ficar atrás de `ENABLE_WRITE_ROUTES`, ou pode continuar público como fluxo de cliente, com o risco registrado?
+
+Depois da resposta, aplico a transformação, repito 3.5 e a validação, e fecho o box de saída.
+
+**Uma pendência sua, de limpeza:** deixei vários servidores de teste rodando em segundo plano, nas portas 5055 a 5064. Eu não consegui encerrá-los porque a permissão do `kill` foi negada. Dá para encerrar com `pkill -f run_app.py`.
 exit=0

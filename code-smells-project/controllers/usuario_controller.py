@@ -1,50 +1,46 @@
-from flask import jsonify, request
+import logging
 
-from middlewares.conexao import conexao_da_requisicao
-from serializers.usuario_serializer import usuario_login, usuario_publico
+from flask import jsonify
+
+from controllers.validadores import corpo_json, validar_login, validar_usuario
+from serializers.usuario_serializer import usuario_publico
 from services import usuario_service
-from utils.tipos import eh_texto_preenchido
 
-
-def _corpo_json():
-    dados = request.get_json(silent=True)
-    return dados if isinstance(dados, dict) else None
+logger = logging.getLogger(__name__)
 
 
 def listar_usuarios():
-    usuarios = usuario_service.listar(conexao_da_requisicao())
+    usuarios = usuario_service.listar()
     return jsonify({"dados": [usuario_publico(u) for u in usuarios], "sucesso": True}), 200
 
 
-def buscar_usuario(usuario_id):
-    usuario = usuario_service.obter(conexao_da_requisicao(), usuario_id)
-    return jsonify({"dados": usuario_publico(usuario), "sucesso": True}), 200
+def buscar_usuario(id):
+    usuario = usuario_service.buscar(id)
+    if usuario:
+        return jsonify({"dados": usuario_publico(usuario), "sucesso": True}), 200
+    return jsonify({"erro": "Usuário não encontrado"}), 404
 
 
 def criar_usuario():
-    dados = _corpo_json()
-    if not dados:
-        return jsonify({"erro": "Dados inválidos"}), 400
+    dados = corpo_json()
+    mensagem = validar_usuario(dados)
+    if mensagem:
+        return jsonify({"erro": mensagem}), 400
 
-    nome = dados.get("nome", "")
-    email = dados.get("email", "")
-    senha = dados.get("senha", "")
-    if not all(eh_texto_preenchido(campo) for campo in (nome, email, senha)):
-        return jsonify({"erro": "Nome, email e senha são obrigatórios"}), 400
-
-    usuario_id = usuario_service.criar(conexao_da_requisicao(), nome, email, senha)
-    return jsonify({"dados": {"id": usuario_id}, "sucesso": True}), 201
+    novo_id = usuario_service.criar(dados["nome"], dados["email"], dados["senha"])
+    logger.info("Usuário criado: id=%s", novo_id)
+    return jsonify({"dados": {"id": novo_id}, "sucesso": True}), 201
 
 
 def login():
-    dados = _corpo_json()
-    if dados is None:
-        return jsonify({"erro": "Dados inválidos"}), 400
+    dados = corpo_json()
+    mensagem = validar_login(dados)
+    if mensagem:
+        return jsonify({"erro": mensagem}), 400
 
-    email = dados.get("email", "")
-    senha = dados.get("senha", "")
-    if not eh_texto_preenchido(email) or not eh_texto_preenchido(senha):
-        return jsonify({"erro": "Email e senha são obrigatórios"}), 400
-
-    usuario = usuario_service.autenticar(conexao_da_requisicao(), email, senha)
-    return jsonify({"dados": usuario_login(usuario), "sucesso": True, "mensagem": "Login OK"}), 200
+    usuario = usuario_service.autenticar(dados["email"], dados["senha"])
+    if usuario:
+        logger.info("Login bem-sucedido: usuario_id=%s", usuario["id"])
+        return jsonify({"dados": usuario, "sucesso": True, "mensagem": "Login OK"}), 200
+    logger.info("Login falhou")
+    return jsonify({"erro": "Email ou senha inválidos", "sucesso": False}), 401

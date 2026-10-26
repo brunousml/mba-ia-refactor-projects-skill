@@ -1,89 +1,106 @@
-from collections import defaultdict
-
-from config.regras import STATUS_APROVADO, STATUS_CANCELADO, STATUS_PENDENTE
+from models.database import get_db
 
 
-def _marcadores(valores):
-    return ",".join("?" * len(valores))   # só "?" gerados; nenhuma entrada do cliente
-
-
-def buscar_produtos(conn, produto_ids):
-    """Produtos por id numa consulta só: {id: row}."""
-    ids = list(set(produto_ids))
-    rows = conn.execute(f"SELECT * FROM produtos WHERE id IN ({_marcadores(ids)})", ids).fetchall()
-    return {row["id"]: row for row in rows}
-
-
-def inserir_pedido(conn, usuario_id, total):
-    cursor = conn.execute(
-        "INSERT INTO pedidos (usuario_id, status, total) VALUES (?, ?, ?)",
-        (usuario_id, STATUS_PENDENTE, total),
+def inserir_pedido(usuario_id, total):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute(
+        "INSERT INTO pedidos (usuario_id, status, total) VALUES (?, 'pendente', ?)",
+        (usuario_id, total)
     )
     return cursor.lastrowid
 
 
-def inserir_item_e_baixar_estoque(conn, pedido_id, produto_id, quantidade, preco_unitario):
-    conn.execute(
+def inserir_item(pedido_id, produto_id, quantidade, preco_unitario):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute(
         "INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_unitario) VALUES (?, ?, ?, ?)",
-        (pedido_id, produto_id, quantidade, preco_unitario),
+        (pedido_id, produto_id, quantidade, preco_unitario)
     )
-    conn.execute("UPDATE produtos SET estoque = estoque - ? WHERE id = ?", (quantidade, produto_id))
 
 
-def _com_itens(conn, rows):
-    pedidos = [dict(row) for row in rows]
-    ids = [pedido["id"] for pedido in pedidos]
-    itens_por_pedido = defaultdict(list)
-    if ids:
-        itens = conn.execute(
-            f"""
-            SELECT i.pedido_id, i.produto_id, i.quantidade, i.preco_unitario,
-                   COALESCE(p.nome, 'Desconhecido') AS produto_nome
-            FROM itens_pedido i
-            LEFT JOIN produtos p ON p.id = i.produto_id
-            WHERE i.pedido_id IN ({_marcadores(ids)})
-            ORDER BY i.id
-            """,
-            ids,
-        )
+def _montar_pedidos(db, pedidos_rows):
+    """Carrega os itens de todos os pedidos em uma consulta (T09), sem uma consulta por pedido."""
+    pedidos = []
+    por_id = {}
+    for row in pedidos_rows:
+        pedido = {
+            "id": row["id"],
+            "usuario_id": row["usuario_id"],
+            "status": row["status"],
+            "total": row["total"],
+            "criado_em": row["criado_em"],
+            "itens": []
+        }
+        pedidos.append(pedido)
+        por_id[row["id"]] = pedido
+
+    if por_id:
+        marcadores = ",".join("?" * len(por_id))  # só "?" gerados; nenhum valor do cliente
+        itens = db.execute(
+            "SELECT ip.pedido_id, ip.produto_id, ip.quantidade, ip.preco_unitario, p.nome AS produto_nome "
+            "FROM itens_pedido ip LEFT JOIN produtos p ON p.id = ip.produto_id "
+            "WHERE ip.pedido_id IN (" + marcadores + ") ORDER BY ip.id",
+            list(por_id)
+        ).fetchall()
         for item in itens:
-            itens_por_pedido[item["pedido_id"]].append(dict(item))
-    for pedido in pedidos:
-        pedido["itens"] = itens_por_pedido[pedido["id"]]
+            por_id[item["pedido_id"]]["itens"].append({
+                "produto_id": item["produto_id"],
+                "produto_nome": item["produto_nome"] if item["produto_nome"] is not None else "Desconhecido",
+                "quantidade": item["quantidade"],
+                "preco_unitario": item["preco_unitario"]
+            })
     return pedidos
 
 
-def listar_por_usuario(conn, usuario_id):
-    rows = conn.execute("SELECT * FROM pedidos WHERE usuario_id = ?", (usuario_id,)).fetchall()
-    return _com_itens(conn, rows)
+def get_pedidos_usuario(usuario_id):
+    db = get_db()
+    rows = db.execute("SELECT * FROM pedidos WHERE usuario_id = ?", (usuario_id,)).fetchall()
+    return _montar_pedidos(db, rows)
 
 
-def listar_todos(conn):
-    return _com_itens(conn, conn.execute("SELECT * FROM pedidos").fetchall())
+def get_todos_pedidos():
+    db = get_db()
+    rows = db.execute("SELECT * FROM pedidos").fetchall()
+    return _montar_pedidos(db, rows)
 
 
-def existe(conn, pedido_id):
-    return conn.execute("SELECT 1 FROM pedidos WHERE id = ?", (pedido_id,)).fetchone() is not None
+def resumo_vendas():
+    """Contagens e soma brutas. As regras de desconto ficam no serviço de relatório (T06)."""
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM pedidos")
+    total_pedidos = cursor.fetchone()[0]
+
+    cursor.execute("SELECT SUM(total) FROM pedidos")
+    faturamento = cursor.fetchone()[0]
+    if faturamento is None:
+        faturamento = 0
+
+    cursor.execute("SELECT COUNT(*) FROM pedidos WHERE status = 'pendente'")
+    pendentes = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM pedidos WHERE status = 'aprovado'")
+    aprovados = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM pedidos WHERE status = 'cancelado'")
+    cancelados = cursor.fetchone()[0]
+
+    return {
+        "total_pedidos": total_pedidos,
+        "faturamento": faturamento,
+        "pendentes": pendentes,
+        "aprovados": aprovados,
+        "cancelados": cancelados,
+    }
 
 
-def atualizar_status(conn, pedido_id, novo_status):
-    conn.execute("UPDATE pedidos SET status = ? WHERE id = ?", (novo_status, pedido_id))
+def atualizar_status_pedido(pedido_id, novo_status):
+    db = get_db()
+    cursor = db.cursor()
 
-
-def contar(conn):
-    return conn.execute("SELECT COUNT(*) FROM pedidos").fetchone()[0]
-
-
-def totais_de_vendas(conn):
-    row = conn.execute(
-        """
-        SELECT COUNT(*) AS total_pedidos,
-               SUM(total) AS faturamento,
-               COALESCE(SUM(status = ?), 0) AS pendentes,
-               COALESCE(SUM(status = ?), 0) AS aprovados,
-               COALESCE(SUM(status = ?), 0) AS cancelados
-        FROM pedidos
-        """,
-        (STATUS_PENDENTE, STATUS_APROVADO, STATUS_CANCELADO),
-    ).fetchone()
-    return dict(row)
+    cursor.execute("UPDATE pedidos SET status = ? WHERE id = ?", (novo_status, pedido_id))
+    db.commit()
+    return cursor.rowcount > 0

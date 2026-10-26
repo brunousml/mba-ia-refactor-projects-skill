@@ -1,58 +1,68 @@
+import logging
+
 from flask import jsonify, request
 
-from middlewares.conexao import conexao_da_requisicao
-from serializers.produto_serializer import produto_publico
+from controllers.validadores import converter_preco, corpo_json, validar_produto
 from services import produto_service
-from services.erros import ErroDeNegocio
 
-
-def _corpo_json():
-    dados = request.get_json(silent=True)
-    return dados if isinstance(dados, dict) else None
-
-
-def _preco_da_query(nome):
-    valor = request.args.get(nome, None)
-    if not valor:
-        return None
-    try:
-        return float(valor)
-    except ValueError:
-        raise ErroDeNegocio(f"{nome} deve ser numérico")
+logger = logging.getLogger(__name__)
 
 
 def listar_produtos():
-    produtos = produto_service.listar(conexao_da_requisicao())
-    return jsonify({"dados": [produto_publico(p) for p in produtos], "sucesso": True}), 200
+    produtos = produto_service.listar()
+    logger.info("Listando %s produtos", len(produtos))
+    return jsonify({"dados": produtos, "sucesso": True}), 200
 
 
-def buscar_produto(produto_id):
-    produto = produto_service.obter(conexao_da_requisicao(), produto_id, sucesso_no_erro=False)
-    return jsonify({"dados": produto_publico(produto), "sucesso": True}), 200
+def buscar_produto(id):
+    produto = produto_service.buscar(id)
+    if produto:
+        return jsonify({"dados": produto, "sucesso": True}), 200
+    return jsonify({"erro": "Produto não encontrado", "sucesso": False}), 404
 
 
 def criar_produto():
-    dados = _corpo_json()
-    if not dados:
-        return jsonify({"erro": "Dados inválidos"}), 400
-    produto_id = produto_service.criar(conexao_da_requisicao(), dados)
-    return jsonify({"dados": {"id": produto_id}, "sucesso": True, "mensagem": "Produto criado"}), 201
+    dados = corpo_json()
+    mensagem = validar_produto(dados)
+    if mensagem:
+        return jsonify({"erro": mensagem}), 400
+
+    novo_id = produto_service.criar(
+        dados["nome"], dados.get("descricao", ""), dados["preco"], dados["estoque"], dados.get("categoria", "geral")
+    )
+    logger.info("Produto criado: id=%s", novo_id)
+    return jsonify({"dados": {"id": novo_id}, "sucesso": True, "mensagem": "Produto criado"}), 201
 
 
-def atualizar_produto(produto_id):
-    produto_service.atualizar(conexao_da_requisicao(), produto_id, _corpo_json())
+def atualizar_produto(id):
+    if produto_service.buscar(id) is None:
+        return jsonify({"erro": "Produto não encontrado"}), 404
+
+    dados = corpo_json()
+    mensagem = validar_produto(dados)
+    if mensagem:
+        return jsonify({"erro": mensagem}), 400
+
+    produto_service.atualizar(
+        id, dados["nome"], dados.get("descricao", ""), dados["preco"], dados["estoque"], dados.get("categoria", "geral")
+    )
     return jsonify({"sucesso": True, "mensagem": "Produto atualizado"}), 200
 
 
-def deletar_produto(produto_id):
-    produto_service.deletar(conexao_da_requisicao(), produto_id)
+def deletar_produto(id):
+    if produto_service.buscar(id) is None:
+        return jsonify({"erro": "Produto não encontrado"}), 404
+
+    produto_service.deletar(id)
+    logger.info("Produto deletado: id=%s", id)
     return jsonify({"sucesso": True, "mensagem": "Produto deletado"}), 200
 
 
 def buscar_produtos():
     termo = request.args.get("q", "")
     categoria = request.args.get("categoria", None)
-    preco_min = _preco_da_query("preco_min")
-    preco_max = _preco_da_query("preco_max")
-    resultados = produto_service.buscar(conexao_da_requisicao(), termo, categoria, preco_min, preco_max)
-    return jsonify({"dados": [produto_publico(p) for p in resultados], "total": len(resultados), "sucesso": True}), 200
+    preco_min = converter_preco(request.args.get("preco_min", None), "preco_min")
+    preco_max = converter_preco(request.args.get("preco_max", None), "preco_max")
+
+    resultados = produto_service.buscar_com_filtros(termo, categoria, preco_min, preco_max)
+    return jsonify({"dados": resultados, "total": len(resultados), "sucesso": True}), 200

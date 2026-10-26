@@ -1,7 +1,7 @@
 from flask import Blueprint
 
 from controllers import report_controller
-from middlewares.admin import require_admin
+from middlewares.guards import require_admin
 
 report_bp = Blueprint('reports', __name__)
 

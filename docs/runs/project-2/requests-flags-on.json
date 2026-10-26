@@ -1,0 +1,89 @@
+[
+  {
+    "id": "checkout-ok-usuario-novo",
+    "method": "POST",
+    "path": "/api/checkout",
+    "body": {
+      "usr": "Guilherme",
+      "eml": "gui@fullcycle.com.br",
+      "pwd": "senhaforte",
+      "c_id": 2,
+      "card": "4111222233334444"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "checkout-ok-usuario-existente",
+    "method": "POST",
+    "path": "/api/checkout",
+    "body": {
+      "usr": "Leonan",
+      "eml": "leonan@fullcycle.com.br",
+      "pwd": "123",
+      "c_id": 1,
+      "card": "4111222233334444"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "checkout-recusado",
+    "method": "POST",
+    "path": "/api/checkout",
+    "body": {
+      "usr": "João",
+      "eml": "joao@teste.com",
+      "pwd": "123",
+      "c_id": 1,
+      "card": "5111222233334444"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "checkout-curso-inexistente",
+    "method": "POST",
+    "path": "/api/checkout",
+    "body": {
+      "usr": "X",
+      "eml": "x@teste.com",
+      "pwd": "123",
+      "c_id": 999,
+      "card": "4111"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "checkout-400-campos",
+    "method": "POST",
+    "path": "/api/checkout",
+    "body": {
+      "usr": "X"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "relatorio-financeiro",
+    "method": "GET",
+    "path": "/api/admin/financial-report",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "usuario-deletar",
+    "method": "DELETE",
+    "path": "/api/users/1",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  }
+]

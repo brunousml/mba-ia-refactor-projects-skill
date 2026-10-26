@@ -1,30 +1,16 @@
-class AppError(Exception):
-    """Erro de domínio com o status HTTP sugerido; o middleware de erro monta a resposta."""
+class DomainError(Exception):
+    """Erro de regra de negócio com o status HTTP sugerido."""
 
-    status = 400
-
-    def __init__(self, message, status=None):
+    def __init__(self, message, status=400):
         super().__init__(message)
-        self.message = message
-        if status is not None:
-            self.status = status
+        self.status = status
 
 
-class ValidationError(AppError):
-    status = 400
+class NotFoundError(DomainError):
+    def __init__(self, message):
+        super().__init__(message, 404)
 
 
-class UnauthorizedError(AppError):
-    status = 401
-
-
-class ForbiddenError(AppError):
-    status = 403
-
-
-class NotFoundError(AppError):
-    status = 404
-
-
-class ConflictError(AppError):
-    status = 409
+class ConflictError(DomainError):
+    def __init__(self, message):
+        super().__init__(message, 409)

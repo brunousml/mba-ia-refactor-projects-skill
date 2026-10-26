@@ -1,8 +1,10 @@
-// Logger mínimo com nível; nunca recebe senha, chave ou número de cartão completo.
-const logger = {
-    info: (message) => console.log(`[INFO] ${message}`),
-    warn: (message) => console.warn(`[WARN] ${message}`),
-    error: (message, err) => console.error(`[ERROR] ${message}`, err ?? ''),
-};
+// Logger mínimo (T13). Regra: senha, chave, token e número de cartão nunca entram no log.
+function createLogger(write = console.log) {
+    const log = (level) => (message, context) =>
+        write(`${new Date().toISOString()} ${level} ${message}${context ? ` ${JSON.stringify(context)}` : ''}`);
+    return { info: log('INFO'), warn: log('WARN'), error: log('ERROR') };
+}
 
-module.exports = { logger };
+const maskCard = (card) => `****${String(card).slice(-4)}`;
+
+module.exports = { createLogger, maskCard, logger: createLogger() };

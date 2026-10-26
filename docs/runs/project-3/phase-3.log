@@ -1,30 +1,54 @@
+Os 4 subagentes estão escrevendo e rodando os testes contra o código original. Enquanto isso, não mexo em código de produção. Quando os quatro terminarem, gravo o `suite-original.txt` e sigo para o plano de estrutura (3.3).
+
+Subagente de **tasks** terminou: 47 caracterizações verdes e 17 testes `new_behavior` vermelhos pelo motivo esperado. Faltam três: users, categories e reports/sistema.
+
+Subagente de **categories** terminou: 13 caracterizações verdes e 12 `new_behavior` vermelhos pelo motivo esperado. Um ponto para preservar na refatoração: ao apagar uma categoria, o `category_id` das tasks dela vira `NULL`; as tasks não são apagadas. Faltam users e reports/sistema.
+
+Subagente de **users + login** terminou: 36 caracterizações verdes e 25 `new_behavior` vermelhos pelo motivo esperado. Falta só reports/sistema.
+
+Box da `validate-refactor`, sem edição:
+
+```
+================================
+VALIDATION PASSED
+================================
+C1 CRITICAL/HIGH resolvidos   ✓
+C2 Rotas protegidas (T08)      ✓  (22 rotas, 13 guardadas)
+C3 Comportamento               ✓  (off: 30 divergências, 30 intencionais; on: 4)
+C4 Testes                      ✓  (184 testes, 184 verdes; rotas cobertas 22/22)
+C5 Box coerente                ✓
+
+## Pendências
+- nenhuma
+================================
+```
+
 ```
 ================================
 PHASE 3: REFACTORING COMPLETE
 ================================
 ## New Project Structure
 task-manager-api/
-├── app.py                  entry point: create_app() compõe config, CORS, db, blueprints e handler de erro
-├── database.py             instância do SQLAlchemy + commit/rollback
-├── seed.py                 mesmos dados e senhas, hash novo
-├── requirements.txt        sem marshmallow e requests (sem uso)
+├── app.py                  # create_app(): config, CORS, db, handlers, blueprints
+├── database.py
+├── seed.py
 ├── .env.example
-├── config/
-│   ├── settings.py         ambiente/.env: SECRET_KEY, DATABASE_URI, HOST, PORT, DEBUG, CORS, flag admin
-│   └── rules.py            constantes de domínio (status, faixas, limites, roles, cores)
-├── models/                 task.py, user.py, category.py (entidade + consultas, GROUP BY/JOIN)
-├── services/               task_, user_, category_, report_service.py, errors.py, persistence.py, stats.py
-├── controllers/            task_, user_, category_, report_, system_controller.py, request_body.py
-├── routes/                 task_, user_, category_, report_, system_routes.py (só registro)
-├── serializers/            task_, user_, category_serializer.py (sem password)
-├── middlewares/            errors.py (handler central), admin.py (flag + X-Admin-Token)
-└── utils/                  passwords.py (scrypt/werkzeug), time.py (utcnow moderno)
-Removidos: services/notification_service.py, utils/helpers.py (código morto; o primeiro tinha a senha SMTP)
+├── config/      settings.py (ambiente), rules.py (constantes de domínio)
+├── models/      task.py, user.py, category.py (entidades + consultas)
+├── services/    task_service.py, user_service.py, category_service.py, report_service.py, errors.py
+├── controllers/ task_, user_, category_, report_, system_controller.py, request_body.py (validação T17)
+├── routes/      task_, user_, category_, report_, system_routes.py (só registro)
+├── middlewares/ guards.py (T08), errors.py (handler central)
+├── serializers/ task_, user_, category_serializer.py
+├── utils/       passwords.py (scrypt), time.py (utc_now)
+└── tests/       conftest.py, test_tasks.py, test_users.py, test_categories.py,
+                 test_reports_system.py, test_services_unit.py, test_harness.py
 
 ## Validation
   ✓ Application boots without errors
-  ✓ All endpoints respond correctly (49/66 iguais ao snapshot, 17 mudanças intencionais)
-  ✗ Zero anti-patterns remaining
+  ✓ All endpoints respond correctly (40/44 iguais ao snapshot com as flags ligadas, 4 mudanças intencionais; com as flags desligadas, 29 viram 403, também intencionais)
+  ✓ Tests written before refactor: 174 (110 caracterização, 64 comportamento novo); antes 110 verdes / 64 vermelhos; depois 184/184 verdes (+10 unitários escritos antes dos serviços)
+  ✓ Zero CRITICAL/HIGH remaining (validate-refactor: PASSED)
 
 ## MVC checklist
   ✓ Configuração extraída para módulo de config (sem hardcoded)
@@ -35,27 +59,24 @@ Removidos: services/notification_service.py, utils/helpers.py (código morto; o 
   ✓ Entry point claro (só compõe a aplicação)
 
 ## Intentional changes
-- `password` (hash) sai de GET /users/<id>, POST /users, PUT /users/<id> e POST /login (T05).
-- Senhas com scrypt (werkzeug) no lugar de MD5. O seed foi refeito com as mesmas senhas (1234, abcd, pass), e os logins continuam funcionando (T04).
-- DELETE /tasks/<id>, /users/<id>, /categories/<id> e GET /reports/summary, /reports/user/<id> respondem 403 por padrão. Com ENABLE_ADMIN_ROUTES=true, exigem o X-Admin-Token (401 sem ele) e repetem o comportamento e os valores do original (T08).
-- POST /users com role ≠ user e PUT /users/<id> trocando o role respondem 403 sem o token de admin (T18).
-- Debug desligado por padrão (o 500 antes devolvia o Werkzeug Debugger em HTML). CORS `*` só em desenvolvimento. Em produção, exige CORS_ORIGINS (T18).
-- SECRET_KEY vem do ambiente: aleatória com warning em dev, obrigatória em produção (T01).
-- 500 → 400 com JSON: priority não inteira, `?priority=`/`?user_id=` não numéricos, PUT /categories com corpo null, corpo que não é objeto, campos de texto com tipo errado (T17).
-- Novas rejeições 400: tags que não são texto/lista de textos, cor fora de #RRGGBB, `active` não booleano. Antes eram aceitos e corrompiam dados ou davam 500 depois (T17).
-- O PUT /tasks com data inválida agora devolve a mesma mensagem do POST: "Formato de data inválido. Use YYYY-MM-DD" (T16).
-- Falhas não tratadas respondem `{"error": "Erro interno"}` em JSON e são logadas com stack trace. 404, 405 e 415 do Flask não mudaram (T10).
+- T08: com as flags desligadas (o default), as rotas guardadas respondem 403. Com a flag ligada, exigem X-Admin-Token e respondem 401 sem ele ou com valor errado. ADMIN = DELETE /tasks|/users|/categories/<id>, GET /reports/summary, GET /reports/user/<id>; SENSITIVE_READS = GET /users, GET /users/<id>; WRITE = POST/PUT /tasks, /users, /categories.
+- Preservado de propósito: /login continua devolvendo `fake-jwt-token-<id>`, que nenhuma rota verifica. O formato foi mantido; a proteção vem dos guards.
+- T05: `password` saiu das respostas de GET /users/<id>, POST /users, PUT /users/<id> e POST /login.
+- T04: MD5 trocado por scrypt + salt. O seed foi refeito com as mesmas senhas (1234/abcd/pass). Hashes MD5 de bancos antigos deixam de validar.
+- AP-15: role diferente de 'user' exige um token de admin válido; sem ele, 403 "Sem permissão para definir papel".
+- T18: DEBUG vem do ambiente (default false). CORS fica desligado por default (CORS_ORIGINS); antes refletia qualquer origem.
+- T01: SECRET_KEY vem do ambiente e é obrigatória em production. A chave `super-secret-key-123` e a senha SMTP que já estiveram no repositório precisam ser rotacionadas.
+- T17: entrada com tipo errado devolve 400 em vez de 500 (priority, title, password, name, tags, active, color, corpo null, ?priority/?user_id não inteiros). Também passam a dar 400 casos que antes eram aceitos: priority booleana, name numérico, tags inválidas e color fora de #RRGGBB.
+- T10: erro não tratado vira 500 {"error": "Erro interno"} e o detalhe vai só para o log. POST /login com email ou senha que não são texto agora responde 401 (antes 500).
+- T15: NotificationService e utils/helpers.py foram removidos. Nunca eram chamados.
+- PORT configurável por variável de ambiente, com o mesmo default 5000.
 
 ## Anti-patterns remaining
-- AP-07 (HIGH), parcial: o login ainda devolve `fake-jwt-token-<id>`, que nenhuma rota verifica. Criar autenticação real mudaria o contrato de todas as rotas. As rotas perigosas ficaram atrás da flag, e a limitação está no README.
+- [LOW] AP-12: requirements.txt mantém marshmallow, requests e python-dotenv sem uso. Não removi para não mexer no manifesto sem necessidade.
+- [LOW] AP-11: alguns literais de status ('done') e as mensagens de erro continuam inline em models/services. São estáveis e fazem parte do contrato.
+- [LOW] AP-12: seed.py usa print, mas é saída de script de linha de comando, não log de produção.
 ================================
 ```
 
-## Pontos de atenção
-
-- **Ficou um processo no ar na porta 5001**: PIDs `30544` e `31100`. É a aplicação original, que subi para o snapshot, e o `kill` não estava liberado nesta sessão. Como ela roda com o reloader do debug, já recarregou com o código novo. Para encerrar: `kill 30544 31100`. Nas validações usei um harness que encerra o próprio servidor, então a porta 5002 ficou livre.
-- **As credenciais antigas precisam ser rotacionadas** (`super-secret-key-123` e a senha SMTP `senha123`). Saíram do código, mas continuam no histórico do git.
-- **Nada foi commitado.** Os dois arquivos removidos (`notification_service.py` e `helpers.py`) já estão em stage por causa do `git rm`; o resto aparece como modificado ou novo.
-- O snapshot, o comparador e os resultados de cada grupo estão em `/var/folders/cd/gb5z0vcx6bbb5lfqjnw3klfr0000gn/T/tmp.ccgrjDoHhj/`. O banco ficou no estado inicial do seed novo.
-
+O diretório de trabalho com os snapshots, os `suite-*.txt` e `intentional-changes.md` é `/var/folders/s7/12_xl8xs18b4m94jp3pqhyx00000gn/T/tmp.3m6ll62Wkx`. Não fiz commit.
 exit=0

@@ -42,6 +42,7 @@ A severidade de cada anti-pattern está na tabela abaixo. As exceções estão e
 - Literal com cara de chave real: prefixos como `pk_live_`, `sk_live_`, `AKIA`, `ghp_`, ou string longa de alta entropia.
 - Credencial dentro de URL de conexão (`usuario:senha@host`).
 - Segredo devolvido numa resposta (por exemplo, health check que mostra a chave). Isso é também AP-04.
+- Seed que cria usuário com senha fixa e roda no boot também em produção. Correção: o seed de usuários de exemplo só roda fora de produção (`APP_ENV`); um script de seed executado à mão não conta.
 
 **Exceção:** valor claramente de exemplo (`changeme`, `your-key-here`) em arquivo de template. Rebaixe para LOW e explique.
 
@@ -115,7 +116,9 @@ Nomes de caminho e de função que costumam indicar isso: `admin`, `reset`, `dro
 
 Também se aplica (HIGH) ao "login" que devolve um token que nenhuma outra rota verifica: não existe autenticação real.
 
-**Correção:** T08.
+Também se aplica (HIGH) à operação que age sobre uma conta **existente** identificada só por e-mail ou id vindo do corpo, sem conferir senha ou token do dono (ex.: checkout que reaproveita o usuário pelo e-mail e ignora a senha). Se o contrato original já envia a senha do dono, confira-a (o guard do T08 sozinho não basta). Se o contrato não tem nenhuma credencial do dono, o guard do T08 resolve: só quem tem o token de administração age em nome da conta. Exigir uma credencial nova quebraria todos os clientes, então registre a decisão em "Intentional changes".
+
+**Correção:** T08, com o guard que corresponde ao sinal: administração (reset, SQL, relatório ou exportação, mesmo financeiro), leitura sensível (registros pessoais, pedidos, pagamentos) ou escrita (demais POST/PUT/PATCH/DELETE). O login falso é resolvido protegendo as rotas que deveriam depender dele.
 
 ## AP-08 — Query N+1 (MEDIUM)
 

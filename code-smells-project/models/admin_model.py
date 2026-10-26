@@ -1,11 +1,22 @@
-def resetar_banco(conn):
-    for tabela in ("itens_pedido", "pedidos", "produtos", "usuarios"):
-        conn.execute(f"DELETE FROM {tabela}")   # seguro: nomes vêm da tupla fixa
+from models.database import get_db
 
 
-def executar_sql(conn, query):
-    """SQL livre de administração: só alcançável atrás do guard de admin (flag + token)."""
-    cursor = conn.execute(query)
+def resetar():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM itens_pedido")
+    cursor.execute("DELETE FROM pedidos")
+    cursor.execute("DELETE FROM produtos")
+    cursor.execute("DELETE FROM usuarios")
+    db.commit()
+
+
+def executar(query):
+    """Executa SQL bruto (rota de administração). Devolve as linhas em SELECT; None nos demais casos."""
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute(query)
     if query.strip().upper().startswith("SELECT"):
         return [dict(row) for row in cursor.fetchall()]
+    db.commit()
     return None

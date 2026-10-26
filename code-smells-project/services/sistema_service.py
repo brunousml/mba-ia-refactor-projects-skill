@@ -1,17 +1,17 @@
+import os
+
 from config import settings
-from config.regras import VERSAO_API
-from models import pedido_model, produto_model, usuario_model
+from models import sistema_model
 
 
-def health(conn):
+def status_banco():
+    contagens = sistema_model.contagens()
     return {
         "status": "ok",
         "database": "connected",
-        "counts": {
-            "produtos": produto_model.contar(conn),
-            "usuarios": usuario_model.contar(conn),
-            "pedidos": pedido_model.contar(conn)
-        },
-        "versao": VERSAO_API,
-        "ambiente": settings.APP_ENV
+        "counts": contagens,
+        "versao": "1.0.0",
+        "ambiente": "producao",
+        "db_path": os.path.basename(settings.DB_PATH),
+        "debug": settings.DEBUG,
     }

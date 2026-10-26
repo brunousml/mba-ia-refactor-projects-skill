@@ -1,43 +1,58 @@
 # ecommerce-api-legacy
 
-LMS API (com fluxo de checkout) em Node.js/Express usada como entrada do desafio `refactor-arch`.
+LMS API (com fluxo de checkout) em Node.js/Express usada como entrada do desafio `refactor-arch`, refatorada para MVC.
 
 ## Como rodar
 
 ```bash
 npm install
+cp .env.example .env   # opcional; as variáveis são lidas do ambiente
 npm start
 ```
 
-A aplicação sobe em `http://localhost:3000` (configurável por `PORT`). O banco SQLite é em memória e já carrega seeds automaticamente no boot. O usuário de exemplo `leonan@fullcycle.com.br` usa a senha `123` (guardada com hash scrypt).
+A aplicação sobe em `http://localhost:3000` (`PORT` muda a porta). O banco SQLite é em memória e carrega o seed no boot; a senha do usuário de exemplo (`leonan@fullcycle.com.br`) continua `123`, agora gravada com hash scrypt.
 
-As variáveis de ambiente estão em `.env.example`. Exemplos de requisições estão em `api.http`.
+Exemplos de requisições estão em `api.http`.
 
-## Rotas administrativas
+## Acesso às rotas (guards por flag)
 
-`GET /api/admin/financial-report` e `DELETE /api/users/:id` ficam registradas, mas desligadas por padrão (respondem 403). Para ligar:
+Nenhuma rota tinha autenticação. Elas continuam registradas, mas protegidas por flags desligadas por default:
+
+| Rota | Flag |
+|---|---|
+| `POST /api/checkout` | `ENABLE_WRITE_ROUTES` |
+| `GET /api/admin/financial-report` | `ENABLE_ADMIN_ROUTES` |
+| `DELETE /api/users/:id` | `ENABLE_ADMIN_ROUTES` |
+
+Flag desligada: **403**. Flag ligada: exige `X-Admin-Token` igual a `ADMIN_TOKEN` (**401** sem ele). Para o comportamento original:
 
 ```bash
-ENABLE_ADMIN_ROUTES=true ADMIN_TOKEN=<token> npm start
+ENABLE_WRITE_ROUTES=true ENABLE_ADMIN_ROUTES=true ADMIN_TOKEN=troque-me npm start
+curl -H 'X-Admin-Token: troque-me' localhost:3000/api/admin/financial-report
 ```
 
-e envie o header `X-Admin-Token: <token>`. Token ausente ou errado responde 401.
+As credenciais que estavam no código (senha do banco, chave `pk_live_` do gateway) foram removidas e **precisam ser rotacionadas**, porque continuam no histórico do repositório.
 
 ## Estrutura
 
 ```
 src/
-  app.js          entry point: compõe banco, models, services, controllers e rotas
-  config/         settings (ambiente) e rules (constantes de domínio)
-  models/         acesso a dados (SQLite), schema e seed
-  services/       regra de negócio: checkout, pagamento, relatório, usuários
-  controllers/    leitura e validação da requisição, escolha do status
-  routes/         mapeamento método + caminho -> controller
-  middlewares/    guard administrativo, wrapper async e erro central
-  errors/         erro de domínio
+  app.js          entry point: compõe config, banco, middlewares e rotas
+  config/         settings (ambiente) e rules (constantes de pagamento)
+  models/         acesso a dados (SQLite com promises), schema e seed
+  services/       regra de negócio: checkout, relatório, usuários
+  controllers/    validação de entrada e montagem da resposta
+  routes/         método + caminho -> guard + controller
+  middlewares/    guards (T08), handler de erro central, asyncHandler
+  errors/         DomainError
   utils/          hash de senha e logger
+tests/            caracterização HTTP + unitários (node:test)
 ```
 
-## Segurança
+## Testes
 
-As credenciais que estavam no código (`dbPass`, `paymentGatewayKey`) vazaram no histórico do repositório e precisam ser **rotacionadas**.
+```bash
+npm test
+```
+
+A suíte sobe a aplicação como processo filho na porta 3000, então roda em série.

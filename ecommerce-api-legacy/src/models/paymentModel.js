@@ -1,10 +1,4 @@
-function createPaymentModel(db) {
-    return {
-        async create({ enrollmentId, amount, status }) {
-            const { lastID } = await db.run("INSERT INTO payments (enrollment_id, amount, status) VALUES (?, ?, ?)", [enrollmentId, amount, status]);
-            return lastID;
-        },
-    };
-}
+const create = (db, { enrollmentId, amount, status }) =>
+    db.run('INSERT INTO payments (enrollment_id, amount, status) VALUES (?, ?, ?)', [enrollmentId, amount, status]);
 
-module.exports = { createPaymentModel };
+module.exports = { create };

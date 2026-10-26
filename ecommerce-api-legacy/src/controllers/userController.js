@@ -1,12 +1,8 @@
-function createUserController({ userService }) {
-    async function deleteUser(req, res) {
-        if (!/^\d+$/.test(req.params.id)) return res.status(400).send("Bad Request");
+const userService = require('../services/userService');
 
-        await userService.deleteUser(Number(req.params.id));
-        res.send("Usuário deletado, mas as matrículas e pagamentos ficaram sujos no banco.");
-    }
-
-    return { deleteUser };
+async function deleteUser(req, res) {
+    await userService.deleteUser(req.app.locals.db, req.params.id);
+    res.send("Usuário deletado, mas as matrículas e pagamentos ficaram sujos no banco.");
 }
 
-module.exports = { createUserController };
+module.exports = { deleteUser };

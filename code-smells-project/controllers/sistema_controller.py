@@ -1,14 +1,12 @@
 from flask import jsonify
 
-from config.regras import VERSAO_API
-from middlewares.conexao import conexao_da_requisicao
 from services import sistema_service
 
 
 def index():
     return jsonify({
         "mensagem": "Bem-vindo à API da Loja",
-        "versao": VERSAO_API,
+        "versao": "1.0.0",
         "endpoints": {
             "produtos": "/produtos",
             "usuarios": "/usuarios",
@@ -21,4 +19,4 @@ def index():
 
 
 def health_check():
-    return jsonify(sistema_service.health(conexao_da_requisicao())), 200
+    return jsonify(sistema_service.status_banco()), 200

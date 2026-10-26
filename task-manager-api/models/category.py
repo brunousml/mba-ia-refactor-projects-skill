@@ -1,7 +1,6 @@
-from config.rules import DEFAULT_COLOR
+from config import rules
 from database import db
-from models.task import count_by_category
-from utils.time import utcnow
+from utils.time import utc_now
 
 
 class Category(db.Model):
@@ -10,11 +9,11 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(300), nullable=True)
-    color = db.Column(db.String(7), default=DEFAULT_COLOR)
-    created_at = db.Column(db.DateTime, default=utcnow)
+    color = db.Column(db.String(7), default=rules.DEFAULT_COLOR)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
 
-def find_by_id(category_id):
+def get_by_id(category_id):
     return db.session.get(Category, category_id)
 
 
@@ -22,18 +21,23 @@ def list_all():
     return Category.query.order_by(Category.id).all()
 
 
-def list_with_task_count():
-    counts = count_by_category()
-    return [(category, counts.get(category.id, 0)) for category in list_all()]
-
-
-def count_all():
+def count():
     return Category.query.count()
 
 
 def add(category):
     db.session.add(category)
+    db.session.commit()
 
 
 def delete(category):
     db.session.delete(category)
+    db.session.commit()
+
+
+def save():
+    db.session.commit()
+
+
+def rollback():
+    db.session.rollback()

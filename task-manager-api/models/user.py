@@ -1,8 +1,7 @@
-from config.rules import ROLE_USER
+from config import rules
 from database import db
-from models.task import Task, count_grouped_by
 from utils.passwords import hash_password, verify_password
-from utils.time import utcnow
+from utils.time import utc_now
 
 
 class User(db.Model):
@@ -11,23 +10,23 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(50), default=ROLE_USER)
+    password = db.Column(db.String(255), nullable=False)  # hash com salt, nunca o texto
+    role = db.Column(db.String(50), default=rules.DEFAULT_ROLE)
     active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
-    def set_password(self, plain_password):
-        self.password = hash_password(plain_password)
+    def set_password(self, password):
+        self.password = hash_password(password)
 
-    def check_password(self, plain_password):
-        return verify_password(plain_password, self.password)
+    def check_password(self, password):
+        return verify_password(password, self.password)
 
 
-def find_by_id(user_id):
+def get_by_id(user_id):
     return db.session.get(User, user_id)
 
 
-def find_by_email(email):
+def get_by_email(email):
     return User.query.filter_by(email=email).first()
 
 
@@ -35,18 +34,25 @@ def list_all():
     return User.query.order_by(User.id).all()
 
 
-def list_with_task_count():
-    counts = count_grouped_by(Task.user_id)
-    return [(user, counts.get(user.id, 0)) for user in list_all()]
-
-
-def count_all():
+def count():
     return User.query.count()
 
 
 def add(user):
     db.session.add(user)
+    db.session.commit()
 
 
-def delete(user):
+def delete_with_tasks(user, tasks):
+    for task in tasks:
+        db.session.delete(task)
     db.session.delete(user)
+    db.session.commit()
+
+
+def save():
+    db.session.commit()
+
+
+def rollback():
+    db.session.rollback()

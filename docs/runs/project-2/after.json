@@ -1,43 +1,51 @@
 [
   {
     "id": "checkout-ok-usuario-novo",
-    "status": 200,
+    "status": 403,
     "corpo": {
-      "msg": "Sucesso",
-      "enrollment_id": 2
+      "erro": "Recurso desabilitado"
     }
   },
   {
     "id": "checkout-ok-usuario-existente",
-    "status": 200,
+    "status": 403,
     "corpo": {
-      "msg": "Sucesso",
-      "enrollment_id": 3
+      "erro": "Recurso desabilitado"
     }
   },
   {
     "id": "checkout-recusado",
-    "status": 400,
-    "corpo": "Pagamento recusado"
+    "status": 403,
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
   },
   {
     "id": "checkout-curso-inexistente",
-    "status": 404,
-    "corpo": "Curso não encontrado"
+    "status": 403,
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
   },
   {
     "id": "checkout-400-campos",
-    "status": 400,
-    "corpo": "Bad Request"
+    "status": 403,
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
   },
   {
     "id": "relatorio-financeiro",
     "status": 403,
-    "corpo": "Recurso desabilitado"
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
   },
   {
     "id": "usuario-deletar",
     "status": 403,
-    "corpo": "Recurso desabilitado"
+    "corpo": {
+      "erro": "Recurso desabilitado"
+    }
   }
 ]

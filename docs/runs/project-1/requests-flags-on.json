@@ -1,0 +1,372 @@
+[
+  {
+    "id": "index",
+    "method": "GET",
+    "path": "/",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "health",
+    "method": "GET",
+    "path": "/health",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-listar",
+    "method": "GET",
+    "path": "/produtos",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-buscar-q",
+    "method": "GET",
+    "path": "/produtos/busca?q=mouse",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-buscar-categoria-preco",
+    "method": "GET",
+    "path": "/produtos/busca?categoria=informatica&preco_min=100&preco_max=500",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-detalhe-ok",
+    "method": "GET",
+    "path": "/produtos/1",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-detalhe-404",
+    "method": "GET",
+    "path": "/produtos/9999",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-criar-ok",
+    "method": "POST",
+    "path": "/produtos",
+    "body": {
+      "nome": "Teste Baseline",
+      "descricao": "criado na linha de base",
+      "preco": 10.5,
+      "estoque": 3,
+      "categoria": "geral"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-criar-400-nome-curto",
+    "method": "POST",
+    "path": "/produtos",
+    "body": {
+      "nome": "A",
+      "preco": 1,
+      "estoque": 1
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-criar-400-categoria",
+    "method": "POST",
+    "path": "/produtos",
+    "body": {
+      "nome": "Teste",
+      "preco": 1,
+      "estoque": 1,
+      "categoria": "inexistente"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-criar-400-sem-body",
+    "method": "POST",
+    "path": "/produtos",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-atualizar-ok",
+    "method": "PUT",
+    "path": "/produtos/1",
+    "body": {
+      "nome": "Notebook Gamer",
+      "descricao": "atualizado",
+      "preco": 5899.99,
+      "estoque": 9,
+      "categoria": "informatica"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-atualizar-404",
+    "method": "PUT",
+    "path": "/produtos/9999",
+    "body": {
+      "nome": "X Y",
+      "preco": 1,
+      "estoque": 1
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-atualizar-400-preco",
+    "method": "PUT",
+    "path": "/produtos/1",
+    "body": {
+      "nome": "Notebook",
+      "preco": -1,
+      "estoque": 1
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "usuarios-listar",
+    "method": "GET",
+    "path": "/usuarios",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "usuarios-detalhe-ok",
+    "method": "GET",
+    "path": "/usuarios/1",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "usuarios-detalhe-404",
+    "method": "GET",
+    "path": "/usuarios/9999",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "usuarios-criar-ok",
+    "method": "POST",
+    "path": "/usuarios",
+    "body": {
+      "nome": "Baseline",
+      "email": "baseline@loja.com",
+      "senha": "senha-baseline"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "usuarios-criar-400",
+    "method": "POST",
+    "path": "/usuarios",
+    "body": {
+      "nome": "Sem email"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "login-ok",
+    "method": "POST",
+    "path": "/login",
+    "body": {
+      "email": "joao@email.com",
+      "senha": "123456"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "login-401",
+    "method": "POST",
+    "path": "/login",
+    "body": {
+      "email": "joao@email.com",
+      "senha": "errada"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "login-400",
+    "method": "POST",
+    "path": "/login",
+    "body": {
+      "email": "joao@email.com"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-criar-ok",
+    "method": "POST",
+    "path": "/pedidos",
+    "body": {
+      "usuario_id": 2,
+      "itens": [
+        {
+          "produto_id": 2,
+          "quantidade": 2
+        },
+        {
+          "produto_id": 3,
+          "quantidade": 1
+        }
+      ]
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-criar-400-sem-itens",
+    "method": "POST",
+    "path": "/pedidos",
+    "body": {
+      "usuario_id": 2,
+      "itens": []
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-criar-400-estoque",
+    "method": "POST",
+    "path": "/pedidos",
+    "body": {
+      "usuario_id": 2,
+      "itens": [
+        {
+          "produto_id": 1,
+          "quantidade": 999
+        }
+      ]
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-listar",
+    "method": "GET",
+    "path": "/pedidos",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-usuario",
+    "method": "GET",
+    "path": "/pedidos/usuario/2",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-status-ok",
+    "method": "PUT",
+    "path": "/pedidos/1/status",
+    "body": {
+      "status": "aprovado"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "pedidos-status-400",
+    "method": "PUT",
+    "path": "/pedidos/1/status",
+    "body": {
+      "status": "invalido"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "relatorio-vendas",
+    "method": "GET",
+    "path": "/relatorios/vendas",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-deletar-ok",
+    "method": "DELETE",
+    "path": "/produtos/11",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "produtos-deletar-404",
+    "method": "DELETE",
+    "path": "/produtos/9999",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "admin-query-select",
+    "method": "POST",
+    "path": "/admin/query",
+    "body": {
+      "sql": "SELECT id, nome FROM produtos WHERE id = 1"
+    },
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "admin-query-400",
+    "method": "POST",
+    "path": "/admin/query",
+    "body": {},
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  },
+  {
+    "id": "admin-reset-db",
+    "method": "POST",
+    "path": "/admin/reset-db",
+    "headers": {
+      "X-Admin-Token": "tok123"
+    }
+  }
+]

@@ -13,8 +13,21 @@ A mesma skill, byte a byte, foi executada nos 3 projetos: dois em Python/Flask e
 | Skill (cópias idênticas, `diff -r` vazio) | [`code-smells-project/.claude/skills/refactor-arch/`](code-smells-project/.claude/skills/refactor-arch/), [`ecommerce-api-legacy/…`](ecommerce-api-legacy/.claude/skills/refactor-arch/), [`task-manager-api/…`](task-manager-api/.claude/skills/refactor-arch/) |
 | Relatórios da Fase 2 | [`reports/audit-project-1.md`](reports/audit-project-1.md), [`-2.md`](reports/audit-project-2.md), [`-3.md`](reports/audit-project-3.md) |
 | Logs das execuções, linha de base e comparações | [`docs/runs/`](docs/runs/), [`docs/baseline/`](docs/baseline/) |
+| Skill de validação da Fase 3 (somente leitura) | [`code-smells-project/.claude/skills/validate-refactor/`](code-smells-project/.claude/skills/validate-refactor/SKILL.md), copiada nos 3 projetos |
 | Diário de execução (decisões, desvios, evidências) | [`docs/HANDOFF.md`](docs/HANDOFF.md) |
+| Plano da rodada 2 | [`docs/plano-rodada-2.md`](docs/plano-rodada-2.md) |
 | Enunciado original | [`docs/ENUNCIADO.md`](docs/ENUNCIADO.md) |
+
+### Rodada 2: ajustes depois da revisão
+
+A revisão da primeira entrega apontou que a Fase 3 do P1 e do P3 fechava com AP-07 parcial: leituras sensíveis e escritas comuns continuavam sem autenticação, e o box final marcava ✗ em "Zero anti-patterns remaining". A skill mudou em quatro pontos, e os 3 projetos foram refatorados de novo a partir do código original:
+
+- **A Fase 3 só termina sem CRITICAL nem HIGH.** Um passo de pendências (3.6) lista o que sobrou, inclusive sinais do catálogo que o relatório não registrou. Se aparecer CRITICAL ou HIGH, a skill volta ao playbook ou para e pede decisão. "Anti-patterns remaining" só aceita MEDIUM e LOW.
+- **O T08 virou "guards de acesso por flag".** Uma fábrica gera três guards: admin (`ENABLE_ADMIN_ROUTES`), leitura sensível (`ENABLE_SENSITIVE_READS`) e escrita (`ENABLE_WRITE_ROUTES`). Com a flag desligada, que é o padrão, a rota responde 403. Ligada, exige `X-Admin-Token`, comparado em tempo constante.
+- **Testes antes de refatorar.** Subagentes escrevem testes de caracterização, que passam no código original, e testes do comportamento novo, que falham nele. A refatoração só começa depois disso, e a suíte roda ao fim de cada grupo de transformações.
+- **Validação obrigatória.** A skill nova `validate-refactor` confere, sem alterar código, os findings CRITICAL e HIGH, o guard de cada rota, o comportamento com flags desligadas e ligadas, a evidência dos testes e a coerência do box. Sem `VALIDATION PASSED`, o box final não sai.
+
+Os resultados abaixo (seção C) são os da rodada 2. O passo a passo, os incidentes e as decisões estão no [HANDOFF](docs/HANDOFF.md).
 
 ---
 
@@ -98,17 +111,21 @@ Feita sobre o código original, antes de escrever a skill. As linhas foram confe
 ### Estrutura
 
 ```
-.claude/skills/refactor-arch/
-├── SKILL.md                          orquestração das 3 fases e regras duras (127 linhas)
-└── references/
-    ├── project-analysis.md           Fase 1: manifestos, imports, banco, rotas, arquitetura, boot/porta/seed
-    ├── anti-patterns-catalog.md      Fase 2: 15 anti-patterns com sinais de detecção e severidade
-    ├── audit-report-template.md      Fase 2: formato exato do relatório
-    ├── mvc-guidelines.md             Fase 3: camadas, responsabilidades, ordem de aplicação, checklist
-    └── refactoring-playbook.md       Fase 3: 18 transformações com antes/depois em Python e JavaScript
+.claude/skills/
+├── refactor-arch/
+│   ├── SKILL.md                      orquestração das 3 fases e regras duras (149 linhas)
+│   └── references/
+│       ├── project-analysis.md       Fase 1: manifestos, imports, banco, rotas, arquitetura, boot/porta/seed
+│       ├── anti-patterns-catalog.md  Fase 2: 15 anti-patterns com sinais de detecção e severidade
+│       ├── audit-report-template.md  Fase 2: formato exato do relatório
+│       ├── mvc-guidelines.md         Fase 3: camadas, responsabilidades, ordem de aplicação, checklist
+│       ├── refactoring-playbook.md   Fase 3: 18 transformações com antes/depois em Python e JavaScript
+│       └── testing-guidelines.md     Fase 3: framework de teste por stack, isolamento do banco, o que cobrir
+└── validate-refactor/
+    └── SKILL.md                      checagens C1 a C5, só leitura, chamada no fim da Fase 3
 ```
 
-Cada uma das 5 áreas de conhecimento obrigatórias tem o seu arquivo.
+Cada uma das 5 áreas de conhecimento obrigatórias tem o seu arquivo. O `testing-guidelines.md` e a `validate-refactor` entraram na rodada 2.
 
 ### Decisões de design
 
@@ -125,12 +142,15 @@ Cada uma das 5 áreas de conhecimento obrigatórias tem o seu arquivo.
   4. grava um snapshot de todas as rotas do inventário (as destrutivas por último) num diretório temporário **fora** do projeto.
 
   Depois de cada grupo de transformações, ela sobe de novo e compara status e estrutura do corpo. As diferenças precisam ser intencionais e listadas.
-- **Uma ordem única de aplicação**, para que o projeto continue subindo a cada passo:
+- **Testes antes do código (rodada 2).** Com o snapshot gravado, subagentes escrevem os testes por domínio, seguindo o `testing-guidelines.md`. A saída da suíte no código original fica em `suite-original.txt`, e só então a refatoração começa. Teste não pode ser afrouxado para passar: se a precondição mudou por decisão do usuário, a mudança vai para "Intentional changes".
+- **Uma ordem única de aplicação**, para que o projeto continue subindo a cada passo. A suíte roda ao fim de cada grupo, com a saída em `suite-grupo-<n>.txt`:
   1. mover para camadas, sem mudar lógica;
   2. segurança: T01, T02, T04, T05, T08, T18;
   3. estrutura: T06, T07, T10, T16, T17;
   4. limpeza: T09, T11–T15.
-- **Mudanças de segurança que alteram o contrato são intencionais e documentadas.** Exemplos: rotas de administração continuam registradas, mas respondem 403 por padrão; com `ENABLE_ADMIN_ROUTES=true`, exigem `X-Admin-Token`. Hash de senha deixa de ser devolvido. Senhas passam a ter hash forte, com o seed recriado com as mesmas senhas de exemplo. Isso permite validar duas vezes: com a flag desligada, só as mudanças intencionais divergem; com a flag ligada e o token, o comportamento original volta.
+- **Mudanças de segurança que alteram o contrato são intencionais e documentadas.** As rotas de administração, de leitura sensível e de escrita continuam registradas, mas respondem 403 por padrão. Com a flag do guard ligada, exigem `X-Admin-Token`. Hash de senha deixa de ser devolvido, e as senhas passam a ter hash forte, com o seed recriado com as mesmas senhas de exemplo. Assim dá para validar duas vezes: com as flags desligadas, só as mudanças intencionais divergem; com as flags ligadas e o token, o comportamento original volta.
+- **Guard não muda o corpo da requisição.** Exigir a senha do dono numa rota cujo contrato original não envia credencial quebraria todos os clientes. A skill confere a senha só quando o contrato já a envia, como no checkout do P2. Nos outros casos, o guard de escrita é a proteção.
+- **Fim da Fase 3 com pendências checadas.** O passo 3.6 junta os findings não resolvidos e os sinais do catálogo achados no código novo. CRITICAL ou HIGH na lista leva de volta ao playbook ou a uma pergunta ao usuário. Depois disso, a skill chama a `validate-refactor` pela ferramenta Skill; uma checagem feita à mão não conta como PASSED.
 - **Relatório no formato do enunciado:**
   - box `ARCHITECTURE AUDIT REPORT`;
   - `Summary` por severidade;
@@ -152,7 +172,7 @@ Os três últimos (AP-13, AP-14 e AP-15) entraram depois da revisão do checkpoi
 
 ### Playbook (18 transformações)
 
-T01 config por ambiente · T02 consulta parametrizada · T03 separar módulo que mistura camadas · T04 hash forte com salt · T05 serialização explícita · T06 regra fora da rota · T07 dependência injetada no lugar de estado global · T08 guard de administração · T09 consulta em lote · T10 handler de erro central · T11 API moderna · T12 constantes nomeadas · T13 logger · T14 nomes descritivos · T15 remover código morto · T16 extrair regra duplicada · T17 validar na borda · T18 configuração segura.
+T01 config por ambiente · T02 consulta parametrizada · T03 separar módulo que mistura camadas · T04 hash forte com salt · T05 serialização explícita · T06 regra fora da rota · T07 dependência injetada no lugar de estado global · T08 guards de acesso por flag (admin, leitura sensível, escrita) · T09 consulta em lote · T10 handler de erro central · T11 API moderna · T12 constantes nomeadas · T13 logger · T14 nomes descritivos · T15 remover código morto · T16 extrair regra duplicada · T17 validar na borda · T18 configuração segura.
 
 Cada transformação tem antes/depois em **Python e JavaScript** (mais de 70 blocos de código). Algumas trazem detalhes que só apareceram ao testar:
 - **T01:** sem segredo, o boot de desenvolvimento usa um valor aleatório e escreve um warning; só falha em `APP_ENV=production`.
@@ -167,7 +187,7 @@ Cada transformação tem antes/depois em **Python e JavaScript** (mais de 70 blo
   - rotas encontradas por três formas de registro (decorator, registro explícito, módulo de router com prefixo);
   - arquitetura classificada em monolito, camadas parciais ou MVC, com o critério de cada uma.
 - **Nenhuma dica externa durante as execuções.** O `CLAUDE.md` da raiz do fork descreve os projetos. Ele foi renomeado para `CLAUDE.md.off` durante todas as execuções headless, para que a skill não recebesse nenhuma informação além do próprio código.
-- **Mesma cópia nos 3 projetos.** A skill não foi alterada entre as execuções (`diff -r` vazio nas três cópias).
+- **Mesma cópia nos 3 projetos.** Na rodada 1, a skill não foi alterada entre as execuções. Na rodada 2, mudou duas vezes depois que P2 e P3 já tinham rodado: o AP-01 ganhou o sinal do seed de usuários que roda em produção, e a regra da conta existente passou a valer só quando o contrato já envia a senha. Nenhuma das duas afeta P2 ou P3. O P2 já tinha a correção do seed, feita em TDD a partir da revisão, e o checkout dele envia a senha. O seed do P3 é um script executado à mão, que o próprio sinal exclui. As três cópias continuam iguais (`diff -r` vazio).
 
 ### Desafios e como resolvi
 
@@ -180,7 +200,12 @@ Cada transformação tem antes/depois em **Python e JavaScript** (mais de 70 blo
 | O snapshot da Fase 3 ficava sujo por causa do estado do banco (IDs com `AUTOINCREMENT`, rotas destrutivas). | Seed ou backup antes do snapshot; rotas destrutivas por último; restauração antes de validar. |
 | A revisão independente (subagentes) achou 10 erros na análise manual e incoerências de severidade na skill. | Tudo corrigido antes da primeira execução (commit `6e97018`). Depois disso, a skill rodou nos 3 projetos **sem precisar de nova iteração**. |
 | A execução headless da Fase 3 do projeto 2 morreu duas vezes: o `claude -p` em background era encerrado junto com a sessão que o lançou. | Processo desacoplado (`fork` + `setsid`), retomando a mesma sessão com `--continue`. A skill continuou a partir do código parcial. |
-| No modo headless, o `kill` foi negado, e a skill deixou o servidor original no ar (projetos 1 e 3). | A própria skill avisou no final, com os PIDs. Encerrei à mão antes da verificação externa. |
+| No modo headless, o `kill` foi negado, e a skill deixou o servidor original no ar (projetos 1 e 3). | A própria skill avisou no final, com os PIDs. Encerrei à mão antes da verificação externa. Na rodada 2 isso se repetiu com os servidores de teste, e o tratamento foi o mesmo. |
+| Rodada 2: a Fase 3 aceitava fechar com HIGH pendente, desde que listado em "remaining". | Passo 3.6 de pendências, "remaining" restrito a MEDIUM e LOW e a `validate-refactor` como condição para o box. Um subagente revisou a skill procurando caminhos para fechar com HIGH e achou 8 brechas, todas fechadas antes da reexecução. |
+| Rodada 2: a revisão do P2 achou um HIGH que a auditoria não registrou: o checkout com e-mail existente não conferia a senha. | Corrigido em TDD e acrescentado ao catálogo como sinal do AP-07. |
+| Rodada 2: aplicada ao P1, a regra da conta existente passou a exigir senha no `POST /pedidos`, cujo contrato nunca enviou senha. Com flags ligadas, foram 13 divergências em vez de 4. | A regra foi restrita: a senha só é conferida quando o contrato já a envia; sem isso, o guard de escrita basta. O P1 reverteu a exigência em TDD. |
+| Rodada 2: a revisão do P1 achou um pedido parcial gravado em erro 500 e lacunas de teste de guard que a `validate-refactor` deixou passar. Também achou o relatório de vendas na flag de leitura sensível, enquanto o T08 manda relatório para administração. | Corrigido em TDD no P1. Na skill, o T10 passou a exigir rollback no handler de 500, a regra do relatório foi desempatada (administração) e a C4 da `validate-refactor` passou a cobrar os testes de guard e de transação. A C5 também confere a documentação do projeto. |
+| Rodada 2: o limite de uso interrompeu as execuções headless várias vezes. Em uma delas, o P3 ficou com código de produção escrito enquanto os testes ainda rodavam. | Retomada com `--continue` quando o estado estava consistente. Quando não estava, o projeto voltou ao código original e a Fase 3 rodou do zero. |
 
 ---
 
@@ -190,19 +215,21 @@ Cada transformação tem antes/depois em **Python e JavaScript** (mais de 70 blo
 
 | Projeto | Stack detectada | CRITICAL | HIGH | MEDIUM | LOW | Total | Itens da análise manual encontrados |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1: code-smells-project | Python 3.13 + Flask 3.1.1 + sqlite3 | 4 | 4 | 4 | 2 | **14** | 13/13 |
-| 2: ecommerce-api-legacy | Node 26 + Express 4.22 + sqlite3 (memória) | 4 | 4 | 3 | 2 | **13** | 11/11 |
-| 3: task-manager-api | Python 3.13 + Flask 3.0 + Flask-SQLAlchemy 3.1 | 4 | 3 | 5 | 2 | **14** | 13/13 |
+| 1: code-smells-project | Python 3.13 + Flask 3.1.1 + sqlite3 | 5 | 4 | 4 | 2 | **15** | 13/13 |
+| 2: ecommerce-api-legacy | Node 24 + Express 4.22 + sqlite3 (memória) | 5 | 4 | 3 | 2 | **14** | 11/11 |
+| 3: task-manager-api | Python 3.13 + Flask 3.0 + Flask-SQLAlchemy 3.1 | 5 | 3 | 5 | 2 | **15** | 13/13 |
 
-Em cada projeto, conferi uma amostra de 9 a 19 referências `arquivo:linha` contra o código. Todas estavam exatas.
+Cada projeto tem um finding a mais que na rodada 1. No P1 e no P3, a auditoria nova registrou um AP-03 (módulo que mistura dados, regra e roteamento) que a primeira não tinha marcado. No P2, o AP-07 CRITICAL foi dividido em dois, um para o relatório financeiro e outro para o `DELETE`, e o checkout entrou como HIGH de escrita sem autenticação.
 
-Em todos os três, a skill parou depois da Fase 2 sem tocar em código. O `git status` mostrou só o relatório e o log.
+Na rodada 1, conferi uma amostra de 9 a 19 referências `arquivo:linha` por projeto contra o código, e todas estavam exatas.
+
+Nos três projetos, a skill parou depois da Fase 2 sem tocar em código. O `git status` mostrou só o relatório e o log.
 
 ### Estrutura antes e depois
 
 <table>
 <tr><th>Projeto</th><th>Antes</th><th>Depois</th></tr>
-<tr><td><b>1</b><br>4 arquivos, 780 linhas<br>→ 43 arquivos, 991 linhas</td><td>
+<tr><td><b>1</b><br>4 arquivos, 780 linhas<br>→ 41 arquivos, 1099 linhas<br>+ 175 testes</td><td>
 
 ```
 app.py          rotas + admin + boot
@@ -214,19 +241,20 @@ database.py     conexão global + seed
 </td><td>
 
 ```
-app.py         create_app() (composição)
+app.py         composição + boot
 config/        settings.py, regras.py
-routes/        6 módulos (só registro)
-controllers/   6 controllers
+routes/        6 módulos (registro + guard)
+controllers/   6 controllers + validadores
 services/      6 services + erros.py
-models/        database.py + 4 models
-serializers/   produto, usuario, pedido
-middlewares/   conexao, erros, admin
-utils/         senha.py, tipos.py
+models/        database.py + 5 models
+serializers/   usuario (sem senha)
+middlewares/   erros, guards
+utils/         senha.py
+tests/         conftest + 4 domínios
 ```
 
 </td></tr>
-<tr><td><b>2</b><br>3 arquivos, 180 linhas<br>→ 27 arquivos, 444 linhas</td><td>
+<tr><td><b>2</b><br>3 arquivos, 180 linhas<br>→ 24 arquivos, 360 linhas<br>+ 80 testes</td><td>
 
 ```
 src/app.js         boot
@@ -239,21 +267,22 @@ src/utils.js       config + segredos
 </td><td>
 
 ```
-src/app.js     main() (composição)
+src/app.js     composição + boot
 src/config/    settings.js, rules.js
-src/models/    db.js (adaptador Promise),
+src/models/    database.js (adaptador Promise),
                schema.js + 6 models
-src/services/  checkout, payment, report, user
+src/services/  checkout, report, user
 src/controllers/  checkout, report, user
-src/routes/    checkout, admin, user
+src/routes/    index.js (registro + guard)
 src/middlewares/  asyncHandler, errorHandler,
-                  adminGuard
-src/errors/    domainErrors.js
+                  guards
+src/errors/    domainError.js
 src/utils/     password.js, logger.js
+tests/         integração + unit/
 ```
 
 </td></tr>
-<tr><td><b>3</b><br>15 arquivos, 1158 linhas<br>→ 41 arquivos, 1293 linhas</td><td>
+<tr><td><b>3</b><br>15 arquivos, 1158 linhas<br>→ 39 arquivos, 1324 linhas<br>+ 195 testes</td><td>
 
 ```
 app.py      boot + SECRET_KEY + debug
@@ -268,44 +297,58 @@ seed.py
 
 ```
 app.py         create_app() (composição)
+database.py    instância do SQLAlchemy
 config/        settings.py, rules.py
 models/        task, user, category (mantidos)
 routes/        task, user, category, report,
-               system (só registro)
+               system (registro + guard)
 controllers/   5 controllers + request_body
 services/      task, user, category, report,
-               stats, persistence, errors
+               errors
 serializers/   task, user, category
-middlewares/   errors.py, admin.py
+middlewares/   errors.py, guards.py
 utils/         passwords.py, time.py
+tests/         conftest + 7 módulos
 ```
 
 </td></tr>
 </table>
 
-No projeto 3, a skill **não reescreveu** o que já existia. Manteve `models/` e os blueprints, acrescentou as camadas que faltavam e removeu código morto, incluindo duas dependências sem uso do `requirements.txt`.
+No projeto 3, a skill **não reescreveu** o que já existia. Manteve `models/` e os blueprints, acrescentou as camadas que faltavam e removeu código morto.
+
+### Testes escritos antes da refatoração
+
+| Projeto | Suíte | No código original | No fim da Fase 3 |
+| --- | --- | --- | --- |
+| 1 | `pytest`, 175 testes | 101 escritos antes: 49 verdes, 52 vermelhos. Outros 4 vieram nas correções da validação, 69 na revisão e 1 na revisão independente (status de pedido inexistente → 404); os 7 que cobrem uma correção ficaram vermelhos antes do código | 175/175 |
+| 2 | `npm test` (`node --test`), 80 testes | 38 escritos antes; os demais cobrem as camadas novas e as correções da revisão | 80/80 |
+| 3 | `pytest`, 195 testes | 174 escritos antes (110 de caracterização, 64 de comportamento novo) | 195/195 |
+
+Os testes acrescentados depois da Fase 3 vieram da revisão por subagentes: flag isolada por rota (cada flag ligada sozinha libera só as rotas dela), token errado, defesa de papel testada direto no serviço e, no P1, falha no meio de um pedido, que precisa terminar sem nada gravado. A saída da suíte depois de cada grupo de transformações ficou no diretório de trabalho da skill, e a `validate-refactor` a conferiu (checagem C4).
 
 ### Validação externa (fora da skill)
 
-Antes de qualquer refatoração, gravei uma linha de base com o código **original**: [`docs/baseline/before-project-N.json`](docs/baseline/). Ela cobre todas as rotas, com casos de sucesso, 404 e 400. Depois de cada Fase 3, resetei o estado, subi a aplicação refatorada e rodei as mesmas chamadas ([`scripts/smoke.py`](scripts/smoke.py)). Em seguida comparei status e estrutura do corpo ([`scripts/compare.py`](scripts/compare.py)).
+Antes de qualquer refatoração, gravei uma linha de base com o código **original**: [`docs/baseline/before-project-N.json`](docs/baseline/). Ela cobre todas as rotas, com casos de sucesso, 404 e 400. Depois de cada Fase 3, resetei o estado, subi a aplicação refatorada e rodei as mesmas chamadas ([`scripts/smoke.py`](scripts/smoke.py)). Em seguida comparei status e estrutura do corpo ([`scripts/compare.py`](scripts/compare.py)). A variante com flags ligadas usa as mesmas chamadas com `X-Admin-Token` em todas ([`scripts/with-token.py`](scripts/with-token.py)).
 
-| Projeto | Chamadas | Admin desligado (padrão) | Admin ligado + `X-Admin-Token` |
+| Projeto | Chamadas | Flags desligadas (padrão) | Flags ligadas + `X-Admin-Token` |
 | --- | --- | --- | --- |
-| 1 | 35 | 7 divergências, todas intencionais: `/health` sem `secret_key`, `/usuarios` sem `senha`, `POST /produtos` sem corpo 500→400, 3× admin →403 ([diff](docs/runs/project-1/diff.md)) | `/admin/query` 200 com token, 401 sem token; `/admin/reset-db` 200 com token |
-| 2 | 7 | 2 divergências, ambas intencionais: relatório e delete →403 ([diff](docs/runs/project-2/diff.md)) | **0 divergências**; o relatório financeiro sai com os mesmos valores ([diff](docs/runs/project-2/diff-admin-on.md)) |
-| 3 | 44 | 13 divergências, todas intencionais: 4× sem `password`, 9× delete/relatório →403 ([diff](docs/runs/project-3/diff.md)) | 4 divergências, só a remoção do `password`. Contagens, `completion_rate` e mensagens iguais ([diff](docs/runs/project-3/diff-admin-on.md)) |
+| 1 | 35 | 26 divergências, todas intencionais: 25 chamadas a rotas guardadas →403 e `/health` sem `secret_key` ([diff](docs/runs/project-1/diff.md)) | 4 divergências, só mudanças de segurança já documentadas: `/health` sem `secret_key`, `/usuarios` e `/usuarios/<id>` sem `senha`, `POST /produtos` sem corpo 500→400 ([diff](docs/runs/project-1/diff-flags-on.md)) |
+| 2 | 7 | 7 divergências, todas →403: checkout (escrita), relatório financeiro e `DELETE` (admin) ([diff](docs/runs/project-2/diff.md)) | **0 divergências**; o relatório financeiro sai com os mesmos valores ([diff](docs/runs/project-2/diff-flags-on.md)) |
+| 3 | 44 | 31 divergências, todas intencionais: 30 →403 e o login sem `password` ([diff](docs/runs/project-3/diff.md)) | 4 divergências, só a remoção do `password`. Contagens, `completion_rate` e mensagens iguais ([diff](docs/runs/project-3/diff-flags-on.md)) |
 
-Trechos dos logs de boot após a refatoração ([1](docs/runs/project-1/after-server.log), [2](docs/runs/project-2/after-server.log), [3](docs/runs/project-3/after-server.log)):
+Com as flags desligadas, as divergências cresceram em relação à rodada 1 porque leitura sensível e escrita agora também respondem 403. Com as flags ligadas, o comportamento original volta, menos as mudanças de segurança que já estavam documentadas.
+
+Trechos dos logs de boot após a refatoração ([1](docs/runs/project-1/after-server.log), [2](docs/runs/project-2/after-flags-on-server.log), [3](docs/runs/project-3/after-server.log)):
 
 ```
 # projeto 1
 SECRET_KEY não definida; usando valor aleatório de desenvolvimento
-INFO __main__: Servidor iniciado em http://localhost:5001
  * Debug mode: off
 
-# projeto 2
-[INFO] Frankenstein LMS rodando na porta 3000...
-[INFO] Processando cartão final 4444 para o curso 2     ← antes: número completo + chave do gateway
+# projeto 2 (flags ligadas, para o checkout rodar)
+2026-10-23T00:16:12.005Z INFO Frankenstein LMS rodando na porta 3000...
+2026-10-23T00:16:19.324Z INFO Pagamento processado {"userId":2,"courseId":2,"card":"****4444","status":"PAID"}
+                         ← antes: número completo do cartão + chave do gateway
 
 # projeto 3
 SECRET_KEY não definida; usando valor aleatório de desenvolvimento
@@ -313,7 +356,7 @@ SECRET_KEY não definida; usando valor aleatório de desenvolvimento
  * Running on all addresses (0.0.0.0)
 ```
 
-A saída completa de cada fase está em [`docs/runs/project-N/`](docs/runs/): `phase-1-2.log` e `phase-3.log`.
+A saída completa de cada fase está em [`docs/runs/project-N/`](docs/runs/): `phase-1-2.log` e `phase-3.log`. No P1, as retomadas da Fase 3 estão em `phase-3a.log` a `phase-3c.log`.
 
 ### Checklist de validação
 
@@ -328,7 +371,7 @@ A saída completa de cada fase está em [`docs/runs/project-N/`](docs/runs/): `p
 | Relatório segue o template | ✅ | ✅ | ✅ |
 | Cada finding tem arquivo e linhas exatos | ✅ (amostra de 10) | ✅ (amostra de 9) | ✅ (amostra de 19) |
 | Findings ordenados (CRITICAL → LOW) | ✅ | ✅ | ✅ |
-| Mínimo de 5 findings | ✅ 14 | ✅ 13 | ✅ 14 |
+| Mínimo de 5 findings | ✅ 15 | ✅ 14 | ✅ 15 |
 | APIs deprecated (se aplicável) | ✅ n/a: nenhuma no código | ✅ n/a: nenhuma no código | ✅ `utcnow` + `Query.get` (AP-10) |
 | Pausa e pede confirmação antes da Fase 3 | ✅ | ✅ | ✅ |
 | **Fase 3: Refatoração** | | | |
@@ -341,17 +384,25 @@ A saída completa de cada fase está em [`docs/runs/project-N/`](docs/runs/): `p
 | Entry point claro | ✅ `create_app()` | ✅ `main()` | ✅ `create_app()` |
 | Aplicação inicia sem erros | ✅ | ✅ | ✅ |
 | Endpoints originais respondem corretamente | ✅ 35 chamadas | ✅ 7 chamadas | ✅ 44 chamadas |
+| Testes escritos antes da refatoração, todos verdes no fim | ✅ 175/175 | ✅ 80/80 | ✅ 195/195 |
+| Rotas sem autenticação atrás de um guard T08 | ✅ 13 de 19 | ✅ 3 de 3 | ✅ 13 de 22 |
+| Zero CRITICAL/HIGH restante (`validate-refactor`) | ✅ PASSED | ✅ PASSED | ✅ PASSED |
 
-**Anti-patterns que sobraram, segundo a própria skill:**
-- **P1 e P3:** as rotas de leitura e escrita comuns continuam sem autenticação, e o token do login do P3 continua falso (AP-07 parcial). Criar autenticação de verdade mudaria o contrato de todos os clientes. A skill deixou isso explícito no box final, com ✗ em "Zero anti-patterns remaining".
-- **P2:** a skill marcou zero anti-patterns.
+Ficaram sem guard o login, `/health`, a raiz e as leituras sem dado pessoal ou financeiro: produtos e busca no P1; tarefas, busca, estatísticas, categorias e tarefas de um usuário no P3.
+
+**Anti-patterns que sobraram, segundo a própria skill (só MEDIUM e LOW):**
+- **P1:** AP-08 (MEDIUM), porque `criar_pedido` consulta o produto duas vezes por item; AP-11 (LOW), com o status `'pendente'` como literal SQL e a versão repetida; AP-12 (LOW), com o parâmetro `id` e o banner de boot em `print`.
+- **P2:** dois MEDIUM. O `DELETE /api/users/:id` responde 200 para id inexistente e não apaga matrículas nem pagamentos, e o checkout não roda numa transação: com o cartão recusado, o usuário novo continua criado, como no original. Os dois pedem uma decisão de produto.
+- **P3:** três LOW. Dependências sem uso no `requirements.txt`, alguns literais de status e mensagens inline, e `print` no `seed.py`, que é um script de linha de comando.
+
+**Preservado de propósito e documentado no box:** o `POST /admin/query` do P1 continua executando o SQL do corpo, agora atrás de `ENABLE_ADMIN_ROUTES` e do token. O `/login` do P1 continua sem guard e sem devolver token, e o do P3 continua devolvendo `fake-jwt-token-<id>`, que nenhuma rota verifica. Em ambos, a proteção vem dos guards das rotas.
 
 ### Comportamento em stacks diferentes
 
-- **Monolito Flask (P1):** separação completa em camadas. O SQL passou a ser parametrizado, a conexão virou uma por requisição e as senhas ganharam scrypt, com migração automática de um banco antigo em texto puro.
-- **Express com callbacks (P2):** foi o teste mais forte de agnosticismo, porque não tem `requirements.txt`, usa callbacks e o banco fica em memória. A skill criou um adaptador Promise sobre o driver, usou `asyncHandler` e trocou o N+1 do relatório por um único `LEFT JOIN`. Também tratou casos que o original deixava passar: checkout com e-mail existente e senha errada passou a dar 401; tipo inválido, que derrubava o processo, passou a dar 400.
+- **Monolito Flask (P1):** separação completa em camadas. O SQL passou a ser parametrizado, a conexão virou uma por requisição e as senhas ganharam scrypt. Um `loja.db` da versão antiga precisa ser recriado. O seed de usuários de exemplo só roda fora de produção, e o cadastro de usuário (`POST /usuarios`) passou para trás do guard de escrita, por decisão minha durante a Fase 3. A revisão achou um pedido parcial gravado quando o serviço falhava no meio: o handler de 500 tratava a exceção e o fim da requisição fazia commit. O handler agora desfaz a transação, com teste.
+- **Express com callbacks (P2):** foi o teste mais forte de agnosticismo, porque não tem `requirements.txt`, usa callbacks e o banco fica em memória. A skill criou um adaptador Promise sobre o driver, usou `asyncHandler` e trocou o N+1 do relatório por um único `LEFT JOIN`. Também tratou casos que o original deixava passar: tipo inválido, que derrubava o processo, passou a dar 400. O checkout com e-mail existente e senha errada passou a dar 401 numa correção em TDD depois da revisão, porque a Fase 3 não tinha pegado esse caso.
 - **Flask já em camadas (P3):** a skill reconheceu "camadas parciais" e completou o que faltava, sem reescrever do zero. Trocou as APIs deprecated, removeu código morto e fechou o cadastro anônimo de `admin`.
-- **Nos três:** a skill listou cada mudança de contrato como intencional e preservou a porta original como default.
+- **Nos três:** a skill listou cada mudança de contrato como intencional e preservou a porta original como default. O mesmo guard T08 foi implementado em Python (`exigir_flag`, com `hmac.compare_digest`) e em JavaScript (`exigirFlag`, com `crypto.timingSafeEqual`).
 
 ---
 
@@ -391,10 +442,22 @@ Modo headless, como foi executado aqui (os logs estão em `docs/runs/`):
 ```bash
 cd code-smells-project
 claude -p "/refactor-arch ../reports/audit-project-1.md" --add-dir ../reports \
-  --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"      # Fases 1–2 (para na pergunta)
+  --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash Agent Skill"   # Fases 1–2 (para na pergunta)
 claude -p --continue "sim, prossiga com a Fase 3" --add-dir ../reports \
-  --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash"      # Fase 3
+  --permission-mode acceptEdits --allowedTools "Read Glob Grep Write Edit Bash Agent Skill"   # Fase 3
 ```
+
+`Agent` é necessário para os subagentes que escrevem os testes, e `Skill` para a chamada da `validate-refactor`. O [`scripts/run-skill.sh`](scripts/run-skill.sh) faz as duas chamadas e grava os logs: `scripts/run-skill.sh code-smells-project ../reports/audit-project-1.md "$PWD/docs/runs/project-1"`.
+
+### Rodar os testes
+
+```bash
+cd code-smells-project && .venv/bin/python -m pytest -q tests     # P1
+cd ecommerce-api-legacy && npm test                                # P2
+cd task-manager-api && .venv/bin/python -m pytest -q tests         # P3
+```
+
+No P1, o pytest está no `requirements-dev.txt` (`.venv/bin/pip install -r requirements-dev.txt`). O P3 não tem esse arquivo; instale com `.venv/bin/pip install pytest`.
 
 ### Validar a refatoração
 
@@ -413,4 +476,16 @@ python3 scripts/smoke.py docs/baseline/requests-project-1.json http://localhost:
 python3 scripts/compare.py docs/baseline/before-project-1.json /tmp/after-1.json
 ```
 
-O `compare.py` lista as divergências de status e de estrutura do corpo. Elas devem ser **só** as intencionais listadas na seção C. Para testar as rotas de administração, suba com `ENABLE_ADMIN_ROUTES=true ADMIN_TOKEN=<token>` e envie o header `X-Admin-Token`. O `smoke.py` aceita `"headers"` em cada chamada; veja [`docs/runs/project-2/requests-admin-on.json`](docs/runs/project-2/requests-admin-on.json).
+O `compare.py` lista as divergências de status e de estrutura do corpo. Elas devem ser **só** as intencionais listadas na seção C.
+
+4. **Repetir com as flags ligadas e o token:**
+
+```bash
+python3 scripts/with-token.py docs/baseline/requests-project-1.json tok123 /tmp/requests-on.json
+# reinicie o estado e suba a aplicação com:
+# ENABLE_ADMIN_ROUTES=true ENABLE_SENSITIVE_READS=true ENABLE_WRITE_ROUTES=true ADMIN_TOKEN=tok123
+python3 scripts/smoke.py /tmp/requests-on.json http://localhost:5001 /tmp/after-1-on.json
+python3 scripts/compare.py docs/baseline/before-project-1.json /tmp/after-1-on.json
+```
+
+Com as flags ligadas, só podem sobrar as mudanças de segurança da coluna "flags ligadas" da seção C. As listas de chamadas usadas aqui estão em `docs/runs/project-N/requests-flags-on.json`.
